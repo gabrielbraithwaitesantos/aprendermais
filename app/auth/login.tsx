@@ -50,6 +50,10 @@ export default function LoginScreen() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [feedback, setFeedback] = useState<{
+    type: 'info' | 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'Informe seu email';
@@ -69,11 +73,16 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+      setFeedback(null);
       await signIn(email.trim(), password);
       router.replace('/(tabs)');
     } catch (error: any) {
       if (error?.message?.includes('Email not confirmed')) {
         setShowResendButton(true);
+        setFeedback({
+          type: 'info',
+          message: 'Enviamos um email de confirmação quando você criou a conta. Verifique sua caixa de entrada (e spam).',
+        });
         Alert.alert('Email nao confirmado', 'Confirme o endereco de email antes de fazer login.');
       } else {
         Alert.alert('Nao foi possivel entrar', error?.message ?? 'Verifique suas credenciais.');
@@ -99,8 +108,16 @@ export default function LoginScreen() {
       });
       if (error) throw error;
       Alert.alert('Verifique seu email', 'Enviamos um link magico para continuar o acesso.');
+      setFeedback({
+        type: 'success',
+        message: `Enviamos um link para ${email.trim()}. Abra o email e confirme para continuar.`,
+      });
     } catch (error: any) {
       Alert.alert('Nao foi possivel enviar o link', error?.message ?? 'Tente novamente em instantes.');
+      setFeedback({
+        type: 'error',
+        message: 'Não foi possível enviar o link. Tente novamente ou use outro email.',
+      });
     } finally {
       setMagicLoading(false);
     }
@@ -126,8 +143,16 @@ export default function LoginScreen() {
       setLoading(true);
       await resendConfirmationEmail(email.trim());
       Alert.alert('Email reenviado', 'Confira sua caixa de entrada.');
+      setFeedback({
+        type: 'success',
+        message: `Reenviamos a confirmação para ${email.trim()}.`,
+      });
     } catch (error: any) {
       Alert.alert('Erro', error?.message ?? 'Nao foi possivel reenviar o email.');
+      setFeedback({
+        type: 'error',
+        message: 'Não conseguimos reenviar agora. Tente mais tarde.',
+      });
     } finally {
       setLoading(false);
     }
@@ -249,18 +274,56 @@ export default function LoginScreen() {
                   style={styles.secondaryButton}
                 />
 
-                {showResendButton ? (
-                  <Button
-                    title="Reenviar email de confirmacao"
-                    onPress={handleResendConfirmation}
-                    variant="ghost"
-                    style={styles.secondaryButton}
-                  />
-                ) : null}
+              {showResendButton ? (
+                <Button
+                  title="Reenviar email de confirmacao"
+                  onPress={handleResendConfirmation}
+                  variant="ghost"
+                  style={styles.secondaryButton}
+                />
+              ) : null}
 
-                <Text style={styles.notice}>
-                  Depois de criar uma conta, confirme o cadastro pelo link enviado ao seu email antes de tentar entrar.
-                </Text>
+              {feedback ? (
+                <View
+                  style={[
+                    styles.feedbackCard,
+                    feedback.type === 'success' && styles.feedbackSuccess,
+                    feedback.type === 'error' && styles.feedbackError,
+                    feedback.type === 'info' && styles.feedbackInfo,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      feedback.type === 'success'
+                        ? 'mail-open-outline'
+                        : feedback.type === 'error'
+                        ? 'alert-circle-outline'
+                        : 'information-circle-outline'
+                    }
+                    size={18}
+                    color={
+                      feedback.type === 'error'
+                        ? '#B91C1C'
+                        : feedback.type === 'success'
+                        ? '#065F46'
+                        : '#1E3A8A'
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.feedbackText,
+                      feedback.type === 'error' && { color: '#991B1B' },
+                      feedback.type === 'success' && { color: '#065F46' },
+                    ]}
+                  >
+                    {feedback.message}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.notice}>
+                Depois de criar uma conta, confirme o cadastro pelo link enviado ao seu email antes de tentar entrar.
+              </Text>
 
                 <View style={styles.linksRow}>
                   <Link href="/auth/forgot-password" style={styles.linkText}>
@@ -466,5 +529,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4B5563',
     textAlign: 'center',
+  },
+  feedbackCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 4,
+    backgroundColor: 'rgba(59,130,246,0.14)',
+  },
+  feedbackSuccess: {
+    backgroundColor: 'rgba(16,185,129,0.15)',
+  },
+  feedbackError: {
+    backgroundColor: 'rgba(248,113,113,0.2)',
+  },
+  feedbackInfo: {
+    backgroundColor: 'rgba(59,130,246,0.14)',
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1E3A8A',
   },
 });
