@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=18 <19",
-    "npm": ">=9"
+    "node": "22.x",
+    "npm": ">=10"
   },
   "scripts": {
     "dev": "expo start",
