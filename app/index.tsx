@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,25 +9,34 @@ import { useThemeColors } from '../store/themeStore';
 const { width, height } = Dimensions.get('window');
 const SPLASH_LOGO_SIZE = Math.min(width, height) * 0.56;
 const HERO_LOGO_SIZE = Math.min(width, height) * 0.36;
+const HERO_GLOW_SIZE = HERO_LOGO_SIZE * 1.4;
+const HERO_GLOW_LEFT = (width - HERO_GLOW_SIZE) / 2;
 const SPLASH_LOGO_X_NUDGE = 10; // pixels to the right to visually center the artwork
 
 const onboardingData = [
   {
-    title: 'Estudar nunca foi tão fácil!',
+    title: 'Estudar nunca foi tao facil!',
     description: 'Aprenda com interatividade, praticidade e foco no que realmente importa.',
     color: '#4F46E5',
   },
   {
-    title: 'Aprenda mais de graça!',
-    description: 'Explicações claras e atividades interativas para turbinar seus estudos onde estiver!',
+    title: 'Aprenda mais de graca!',
+    description: 'Explicacoes claras e atividades interativas para turbinar seus estudos onde estiver!',
     color: '#3B82F6',
   },
   {
-    title: 'Estude mais rápido e com eficiência',
-    description: 'Testes rápidos e explicações diretas pra você dominar os conteúdos no seu ritmo.',
+    title: 'Estude mais rapido e com eficiencia',
+    description: 'Testes rapidos e explicacoes diretas pra voce dominar os conteudos no seu ritmo.',
     color: '#8B5CF6',
   },
 ];
+
+const HIGHLIGHT_CHIPS = [
+  { icon: 'sparkles-outline' as const, text: 'Planos otimizados' },
+  { icon: 'flash-outline' as const, text: 'Revisoes rapidas' },
+  { icon: 'chatbubble-ellipses-outline' as const, text: 'Mentoria online' },
+];
+
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -134,6 +143,8 @@ export default function OnboardingScreen() {
             <View style={[styles.decorationDot, { top: 120, right: 100 }]} />
           </View>
 
+          <LinearGradient colors={['rgba(79,70,229,0.25)', 'transparent']} style={styles.heroGlow} />
+
           <View style={styles.logoContainer}>
             <Image
               source={require('../assets/images/hero-logo.png')}
@@ -141,68 +152,89 @@ export default function OnboardingScreen() {
             />
           </View>
           <Text style={[styles.appTitle, { color: theme.text }]}>APRENDER +</Text>
+          <Text style={styles.appSubtitle}>Organize seus estudos com estilo e foco</Text>
         </View>
 
         {/* Bottom Section - Content */}
         <LinearGradient colors={theme.gradient} style={styles.gradient}>
           <View style={styles.handle} />
 
-          <View style={styles.contentWrapper}>
-            <View
-              onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
-              style={{ width: '100%' }}
-            >
-              <ScrollView
-                ref={scrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(e) => {
-                  const w = e.nativeEvent.layoutMeasurement.width || pageWidth;
-                  const idx = Math.round(e.nativeEvent.contentOffset.x / w);
-                  setCurrentIndex(idx);
-                }}
-                onScrollBeginDrag={() => { isDraggingRef.current = true; }}
-                onScrollEndDrag={() => { isDraggingRef.current = false; }}
-                contentContainerStyle={{ alignItems: 'center', paddingTop: 0, paddingBottom: 96 }}
+          <ScrollView
+            contentContainerStyle={styles.bottomContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.contentWrapper}>
+              <View
+                onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
                 style={{ width: '100%' }}
               >
-                {onboardingData.map((slide, idx) => (
-                  <View key={idx} style={[styles.slide, { width: pageWidth }]}>
-                    <Text style={styles.slideTitle}>{slide.title}</Text>
-                    <Text style={styles.slideDescription}>{slide.description}</Text>
+                <ScrollView
+                  ref={scrollRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const w = e.nativeEvent.layoutMeasurement.width || pageWidth;
+                    const idx = Math.round(e.nativeEvent.contentOffset.x / w);
+                    setCurrentIndex(idx);
+                  }}
+                  onScrollBeginDrag={() => {
+                    isDraggingRef.current = true;
+                  }}
+                  onScrollEndDrag={() => {
+                    isDraggingRef.current = false;
+                  }}
+                  contentContainerStyle={{ alignItems: 'center' }}
+                  style={{ width: '100%' }}
+                >
+                  {onboardingData.map((slide, idx) => (
+                    <View key={idx} style={[styles.slide, { width: pageWidth }]}>
+                      <Text style={styles.slideTitle}>{slide.title}</Text>
+                      <Text style={styles.slideDescription}>{slide.description}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.pagination}>
+                {onboardingData.map((_, index) => (
+                  <Pressable
+                    key={index}
+                    onPress={() => {
+                      setCurrentIndex(index);
+                      scrollRef.current?.scrollTo({ x: index * pageWidth, animated: true });
+                    }}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: index === currentIndex ? '#FF9800' : '#E5E7EB' },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <View style={styles.chipRow}>
+                {HIGHLIGHT_CHIPS.map((item) => (
+                  <View key={item.text} style={styles.chip}>
+                    <Ionicons name={item.icon} size={14} color="#111827" />
+                    <Text style={styles.chipText}>{item.text}</Text>
                   </View>
                 ))}
-              </ScrollView>
+              </View>
             </View>
-          </View>
 
-          {/* Pagination dots */}
-          <View style={styles.pagination}>
-          {onboardingData.map((_, index) => (
-            <Pressable
-              key={index}
-              onPress={() => {
-                setCurrentIndex(index);
-                scrollRef.current?.scrollTo({ x: index * pageWidth, animated: true });
-              }}
-              style={[styles.dot, { backgroundColor: index === currentIndex ? '#FF9800' : '#E5E7EB' }]}
-            />
-          ))}
-          </View>
+            {/* Action buttons */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/auth/signup')}>
+                <Text style={styles.registerButtonText}>Registro</Text>
+                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
 
-          {/* Action buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/auth/signup')}>
-              <Text style={styles.registerButtonText}>Registro</Text>
-              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-
-          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/auth/login')}>
-            <Text style={styles.loginButtonText}>Login</Text>
-            <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-          </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/auth/login')}>
+                <Text style={styles.loginButtonText}>Login</Text>
+                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </LinearGradient>
       </SafeAreaView>
     </View>
@@ -238,6 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    paddingTop: 12,
   },
   logoContainer: {
     marginBottom: 20,
@@ -274,6 +307,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     zIndex: 1,
   },
+  appSubtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  heroGlow: {
+    position: 'absolute',
+    width: HERO_GLOW_SIZE,
+    height: HERO_GLOW_SIZE,
+    borderRadius: HERO_LOGO_SIZE,
+    top: '32%',
+    left: HERO_GLOW_LEFT,
+    opacity: 0.6,
+  },
   decorationLayer: {
     position: 'absolute',
     top: 0,
@@ -296,6 +343,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 56,
+  },
+  bottomContent: {
+    paddingBottom: 32,
+    gap: 32,
   },
   contentWrapper: {
     flex: 1,
@@ -334,13 +385,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   pagination: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 128,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
   },
   slide: {
     justifyContent: 'flex-start',
@@ -348,6 +397,31 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingHorizontal: 12,
     paddingBottom: 20,
+  },
+  chipRow: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.08)',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
   },
   dot: {
     width: 8,

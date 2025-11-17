@@ -1,6 +1,14 @@
 import 'dotenv/config';
 import type { ExpoConfig } from 'expo/config';
 
+const getEnv = (key: string, fallback?: string) => {
+  const value = process.env[key];
+  if (typeof value === 'string' && value.length > 0) return value;
+  return fallback;
+};
+
+const defaultRedirect = 'meuapp://auth/callback';
+
 const config: ExpoConfig = {
   name: 'meuapp',
   slug: 'meuapp',
@@ -31,13 +39,13 @@ const config: ExpoConfig = {
     router: {
       origin: false,
     },
-    // Back-compat with existing code reading EXPO_PUBLIC_* keys
-    EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    // Explicit keys used by src/lib/supabase.ts
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnon: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    redirectUri: 'meuapp://auth/callback',
+    supabaseUrl: getEnv('EXPO_PUBLIC_SUPABASE_URL'),
+    supabaseAnon: getEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY'),
+    authRedirectUri: getEnv('EXPO_PUBLIC_AUTH_REDIRECT_URI', defaultRedirect),
+    googleClientId: getEnv('EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID'),
+    googleClientSecret: getEnv('EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET'),
+    googleAndroidClientId: getEnv('EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID'),
+    googleIosClientId: getEnv('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'),
   },
 };
 

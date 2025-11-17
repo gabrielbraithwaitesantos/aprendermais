@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +18,17 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleBackToLogin = () => {
+    const routerAny = router as unknown as {
+      canGoBack?: () => boolean;
+    };
+    if (typeof routerAny?.canGoBack === 'function' && routerAny.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/auth/login');
+  };
 
   const handleUpdate = async () => {
     if (!password || password.length < 6) {
@@ -52,6 +64,13 @@ export default function ResetPasswordScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.box}>
+              <TouchableOpacity onPress={handleBackToLogin} style={styles.backRow}>
+                <View style={styles.backIcon}>
+                  <Ionicons name="chevron-back" size={20} color="#1F2937" />
+                </View>
+                <Text style={styles.backLabel}>Voltar</Text>
+              </TouchableOpacity>
+
               <Text style={styles.title}>Definir nova senha</Text>
               <Text style={styles.description}>
                 Escolha uma nova senha segura para continuar utilizando o aplicativo.
@@ -79,7 +98,7 @@ export default function ResetPasswordScreen() {
 
               <Button
                 title="Voltar ao login"
-                onPress={() => router.replace('/auth/login')}
+                onPress={handleBackToLogin}
                 variant="ghost"
                 style={styles.backButton}
               />
@@ -103,6 +122,25 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  backLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   title: {
     fontSize: 24,

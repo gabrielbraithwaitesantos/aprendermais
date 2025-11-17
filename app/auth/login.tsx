@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
-import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { Button } from '../../components/ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeColors } from '../../store/themeStore';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -32,7 +32,6 @@ export default function LoginScreen() {
   const theme = useThemeColors();
   const { signIn, resendConfirmationEmail } = useAuthStore.getState();
 
-  const redirectTo = useMemo(() => makeRedirectUri({ scheme: 'meuapp', path: 'auth/callback' }), []);
   const googleConfigured = useMemo(() => {
     const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
     return Boolean(
@@ -46,14 +45,24 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [feedback, setFeedback] = useState<{
     type: 'info' | 'success' | 'error';
     message: string;
   } | null>(null);
+  const { isReady: googleReady, loading: oauthLoading, error: googleError, signInWithGoogle } = useGoogleSignIn();
+  const googleAvailable = googleConfigured && googleReady;
+
+  useEffect(() => {
+    if (googleError) {
+      Alert.alert('Login com Google', googleError);
+      setFeedback({
+        type: 'error',
+        message: googleError,
+      });
+    }
+  }, [googleError]);
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'Informe seu email';
@@ -92,51 +101,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleMagicLink = async () => {
-    const emailError = validateEmail(email);
-    if (emailError) {
-      setErrors((prev) => ({ ...prev, email: emailError }));
-      Alert.alert('Email invalido', 'Informe um email valido para receber o link magico.');
-      return;
-    }
-
-    try {
-      setMagicLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: redirectTo },
-      });
-      if (error) throw error;
-      Alert.alert('Verifique seu email', 'Enviamos um link magico para continuar o acesso.');
-      setFeedback({
-        type: 'success',
-        message: `Enviamos um link para ${email.trim()}. Abra o email e confirme para continuar.`,
-      });
-    } catch (error: any) {
-      Alert.alert('Nao foi possivel enviar o link', error?.message ?? 'Tente novamente em instantes.');
-      setFeedback({
-        type: 'error',
-        message: 'Não foi possível enviar o link. Tente novamente ou use outro email.',
-      });
-    } finally {
-      setMagicLoading(false);
-    }
-  };
-
-  const handleGoogleOAuth = async () => {
-    try {
-      setOauthLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      Alert.alert('Nao foi possivel iniciar com Google', error?.message ?? 'Verifique as credenciais do provedor.');
-    } finally {
-      setOauthLoading(false);
-    }
-  };
 
   const handleResendConfirmation = async () => {
     try {
@@ -219,10 +183,6 @@ export default function LoginScreen() {
             >
               <BlurView intensity={45} tint="light" style={styles.card}>
                 <View style={styles.badgeRow}>
-                  <View style={[styles.badge, styles.badgePrimary]}>
-                    <Ionicons name="key-outline" size={16} color="#2563EB" />
-                    <Text style={styles.badgeText}>Magic link</Text>
-                  </View>
                   <View style={[styles.badge, styles.badgeSecondary]}>
                     <Ionicons name="shield-checkmark-outline" size={16} color="#0EA5E9" />
                     <Text style={styles.badgeText}>Login seguro</Text>
@@ -266,13 +226,6 @@ export default function LoginScreen() {
                   loading={loading}
                 />
 
-                <Button
-                  title="Enviar magic link"
-                  onPress={handleMagicLink}
-                  loading={magicLoading}
-                  variant="ghost"
-                  style={styles.secondaryButton}
-                />
 
               {showResendButton ? (
                 <Button
@@ -335,14 +288,15 @@ export default function LoginScreen() {
                   </Link>
                 </View>
 
-                {googleConfigured ? (
+                {googleAvailable ? (
                   <View style={styles.oauthBlock}>
                     <Text style={styles.oauthLabel}>Ou continue com</Text>
                     <Button
-                      title="Google"
-                      onPress={handleGoogleOAuth}
+                      title="Entrar com Google"
+                      onPress={signInWithGoogle}
                       loading={oauthLoading}
                       variant="ghost"
+                      disabled={!googleAvailable}
                     />
                   </View>
                 ) : null}
@@ -480,11 +434,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     backgroundColor: 'rgba(255,255,255,0.8)',
-  },
-  badgePrimary: {
-    backgroundColor: 'rgba(59,130,246,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.35)',
   },
   badgeSecondary: {
     backgroundColor: 'rgba(14,165,233,0.15)',
