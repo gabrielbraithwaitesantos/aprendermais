@@ -35,6 +35,7 @@ export default function CalendarioScreen() {
   const [formNotes, setFormNotes] = useState('');
   const [formDate, setFormDate] = useState<Date>(() => new Date());
   const [formCategory, setFormCategory] = useState<CalendarEvent['category']>('simulado');
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -79,27 +80,55 @@ export default function CalendarioScreen() {
   const monthMatrix = useMemo(() => generateMonthMatrix(new Date(), events), [events]);
   const weekPreview = useMemo(() => buildWeekPreview(events), [events]);
 
+  const resetForm = () => {
+    setFormTitle('');
+    setFormNotes('');
+    setFormDate(new Date());
+    setFormCategory('simulado');
+    setEditingEventId(null);
+  };
+
+  const openModal = (event?: CalendarEvent) => {
+    if (event) {
+      setFormTitle(event.title);
+      setFormNotes(event.notes ?? '');
+      setFormDate(new Date(event.timestamp));
+      setFormCategory(event.category);
+      setEditingEventId(event.id);
+    } else {
+      resetForm();
+    }
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    resetForm();
+  };
+
   const handleSaveEvent = () => {
     if (!formTitle.trim()) {
       Alert.alert('Informe um titulo', 'Digite o nome do evento antes de salvar.');
       return;
     }
-    const newEvent: CalendarEvent = {
-      id: Math.random().toString(36).slice(2),
+    const payload: CalendarEvent = {
+      id: editingEventId ?? Math.random().toString(36).slice(2),
       title: formTitle.trim(),
       notes: formNotes.trim() || undefined,
       timestamp: formDate.getTime(),
       category: formCategory,
     };
-    setEvents((prev) => [...prev, newEvent]);
-    setModalVisible(false);
-    setFormTitle('');
-    setFormNotes('');
-    setFormDate(new Date());
+    setEvents((prev) =>
+      editingEventId ? prev.map((item) => (item.id === editingEventId ? payload : item)) : [...prev, payload]
+    );
+    closeModal();
   };
 
   const handleDelete = (id: string) => {
     setEvents((prev) => prev.filter((item) => item.id !== id));
+    if (editingEventId === id) {
+      closeModal();
+    }
   };
 
   return (
@@ -113,7 +142,7 @@ export default function CalendarioScreen() {
             <Text style={[styles.title, { color: theme.text }]}>Calendario inteligente</Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>Seu cronograma de estudos sempre organizado.</Text>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+          <TouchableOpacity style={styles.addButton} onPress={() => openModal()}>
             <Ionicons name='add' size={18} color='#FFFFFF' />
             <Text style={styles.addButtonText}>Novo evento</Text>
           </TouchableOpacity>
@@ -156,16 +185,7 @@ export default function CalendarioScreen() {
               </Text>
             ) : (
               sortedEvents.map((event) => (
-                <TouchableOpacity
-                  key={event.id}
-                  style={styles.eventCard}
-                  onLongPress={() =>
-                    Alert.alert('Excluir', 'Remover este evento?', [
-                      { text: 'Cancelar' },
-                      { text: 'Remover', style: 'destructive', onPress: () => handleDelete(event.id) },
-                    ])
-                  }
-                >
+                <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => openModal(event)}>
                   <View style={[styles.eventDot, { backgroundColor: colorByCategory(event.category) }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.eventTitle, { color: theme.text }]}>{event.title}</Text>
@@ -231,10 +251,12 @@ export default function CalendarioScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={modalVisible} transparent animationType='slide' onRequestClose={() => setModalVisible(false)}>
+      <Modal visible={modalVisible} transparent animationType='slide' onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: theme.background }]}> 
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Novo evento</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {editingEventId ? 'Editar evento' : 'Novo evento'}
+            </Text>
             <TextInput
               placeholder='Titulo'
               placeholderTextColor={theme.textMuted}
@@ -311,11 +333,24 @@ export default function CalendarioScreen() {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+              {editingEventId ? (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() =>
+                    Alert.alert('Remover evento', 'Deseja excluir este evento?', [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Excluir', style: 'destructive', onPress: () => handleDelete(editingEventId) },
+                    ])
+                  }
+                >
+                  <Text style={styles.deleteText}>Excluir</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.cancelBtn} onPress={closeModal}>
                 <Text style={styles.cancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEvent}>
-                <Text style={styles.saveText}>Salvar</Text>
+                <Text style={styles.saveText}>{editingEventId ? 'Atualizar' : 'Salvar'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -470,6 +505,8 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { color: '#FFFFFF', fontWeight: '700' },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
+  deleteBtn: { paddingVertical: 8, paddingHorizontal: 12, marginRight: 'auto' },
+  deleteText: { color: '#EF4444', fontWeight: '700' },
   cancelBtn: { paddingVertical: 8, paddingHorizontal: 12 },
   cancelText: { color: '#6B7280', fontWeight: '700' },
   saveBtn: { backgroundColor: '#4F46E5', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },

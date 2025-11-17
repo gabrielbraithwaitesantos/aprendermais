@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -35,9 +35,10 @@ export default function VideosScreen() {
     loading,
     error,
     refresh,
-    markLessonAsWatched,
+    toggleLessonCompletion,
   } = useLessons();
   const [selectedSubject, setSelectedSubject] = useState('todos');
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const categories = useMemo(
     () => [
@@ -91,6 +92,11 @@ export default function VideosScreen() {
     }
   };
 
+  const handleChannelPress = (slug: string) => {
+    setSelectedSubject(slug);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
   const isEmpty = !loading && heroLessons.length === 0 && groupedLessons.every(([, list]) => list.length === 0);
 
   return (
@@ -102,6 +108,7 @@ export default function VideosScreen() {
         end={{ x: 1, y: 1 }}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 32 }}
           showsVerticalScrollIndicator={false}
@@ -203,16 +210,19 @@ export default function VideosScreen() {
                           {lesson.subject?.name || lesson.subject_tag}
                         </Text>
                         <TouchableOpacity
-                          onPress={() => markLessonAsWatched(lesson.id)}
-                          style={styles.tagButton}
+                          onPress={() => toggleLessonCompletion(lesson.id)}
+                          style={[
+                            styles.tagButton,
+                            lesson.progress?.status === 'done' && { backgroundColor: 'rgba(16,185,129,0.25)' },
+                          ]}
                         >
                           <Ionicons
-                            name={lesson.progress?.status === 'done' ? 'checkmark' : 'bookmark-outline'}
+                            name={lesson.progress?.status === 'done' ? 'refresh' : 'bookmark-outline'}
                             size={14}
                             color="#FFFFFF"
                           />
                           <Text style={styles.tagButtonText}>
-                            {lesson.progress?.status === 'done' ? 'Concluido' : 'Marcar feito'}
+                            {lesson.progress?.status === 'done' ? 'Desfazer' : 'Marcar feito'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -277,15 +287,15 @@ export default function VideosScreen() {
                             styles.actionButton,
                             lesson.progress?.status === 'done' && { backgroundColor: 'rgba(16,185,129,0.4)' },
                           ]}
-                          onPress={() => markLessonAsWatched(lesson.id)}
+                          onPress={() => toggleLessonCompletion(lesson.id)}
                         >
                           <Ionicons
-                            name={lesson.progress?.status === 'done' ? 'checkmark-done' : 'checkbox-outline'}
+                            name={lesson.progress?.status === 'done' ? 'arrow-undo' : 'checkbox-outline'}
                             size={16}
                             color="#FFFFFF"
                           />
                           <Text style={styles.actionButtonText}>
-                            {lesson.progress?.status === 'done' ? 'Feito' : 'Concluir'}
+                            {lesson.progress?.status === 'done' ? 'Desfazer' : 'Concluir'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -319,7 +329,10 @@ export default function VideosScreen() {
                         {channel.lessons} aulas disponiveis nesta materia
                       </Text>
                     </View>
-                    <TouchableOpacity style={styles.subscribeButton}>
+                    <TouchableOpacity
+                      style={styles.subscribeButton}
+                      onPress={() => handleChannelPress(channel.id)}
+                    >
                       <Text style={styles.subscribeText}>Ver aulas</Text>
                     </TouchableOpacity>
                   </View>

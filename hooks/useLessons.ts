@@ -111,19 +111,26 @@ export function useLessons() {
     return grouped;
   }, [state.lessons]);
 
-  const markLessonAsWatched = useCallback(
+  const toggleLessonCompletion = useCallback(
     async (lessonId: string) => {
       if (!user?.id) return;
-      await supabase.from('lesson_progress').upsert({
-        lesson_id: lessonId,
-        user_id: user.id,
-        percent_complete: 100,
-        status: 'done',
-        completed_at: new Date().toISOString(),
-      });
+      const lesson = state.lessons.find((item) => item.id === lessonId);
+      const current = lesson?.progress;
+
+      if (current?.status === 'done') {
+        await supabase.from('lesson_progress').delete().eq('id', current.id);
+      } else {
+        await supabase.from('lesson_progress').upsert({
+          lesson_id: lessonId,
+          user_id: user.id,
+          percent_complete: 100,
+          status: 'done',
+          completed_at: new Date().toISOString(),
+        });
+      }
       fetchLessons();
     },
-    [user?.id, fetchLessons]
+    [user?.id, state.lessons, fetchLessons]
   );
 
   return {
@@ -132,6 +139,6 @@ export function useLessons() {
     subjectsMeta,
     lessonsBySubject,
     refresh: fetchLessons,
-    markLessonAsWatched,
+    toggleLessonCompletion,
   };
 }

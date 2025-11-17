@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeColors } from '../../store/themeStore';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useProgress } from '../../hooks/useProgress';
 
 const { width } = Dimensions.get('window');
@@ -16,6 +16,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuthStore();
   const theme = useThemeColors();
+  const router = useRouter();
   const {
     loading: progressLoading,
     subjects: subjectProgress,
@@ -65,6 +66,39 @@ export default function DashboardScreen() {
   const overallPercent = Math.min(100, Math.max(0, overview.overallPercent || 0));
   const hasSubjects = subjectProgress.length > 0;
   const hasActivities = activities.length > 0;
+  const quickActions = useMemo(
+    () => [
+      {
+        id: 'continue',
+        label: 'Continuar',
+        icon: 'play-circle' as const,
+        color: '#10B981',
+        path: '/(tabs)/videos',
+      },
+      {
+        id: 'explore',
+        label: 'Explorar',
+        icon: 'search' as const,
+        color: '#F59E0B',
+        path: '/(tabs)/biblioteca',
+      },
+      {
+        id: 'achievements',
+        label: 'Conquistas',
+        icon: 'trophy' as const,
+        color: '#8B5CF6',
+        path: '/(tabs)/mais',
+      },
+      {
+        id: 'settings',
+        label: 'Configurações',
+        icon: 'settings' as const,
+        color: '#3B82F6',
+        path: '/(tabs)/perfil',
+      },
+    ],
+    []
+  );
 
   const handleSignOut = async () => {
     try {
@@ -280,33 +314,18 @@ export default function DashboardScreen() {
           <View style={styles.actionsSection}>
             <Text style={[styles.sectionTitle, styles.sectionStandaloneTitle]}>Acoes Rapidas</Text>
             <View style={styles.actionsGrid}>
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-                  <Ionicons name="play-circle" size={24} color="white" />
-                </View>
-                <Text style={styles.actionText}>Continuar</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={[styles.actionIcon, { backgroundColor: '#F59E0B' }]}>
-                  <Ionicons name="search" size={24} color="white" />
-                </View>
-                <Text style={styles.actionText}>Explorar</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' }]}>
-                  <Ionicons name="trophy" size={24} color="white" />
-                </View>
-                <Text style={styles.actionText}>Conquistas</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={[styles.actionIcon, { backgroundColor: '#3B82F6' }]}>
-                  <Ionicons name="settings" size={24} color="white" />
-                </View>
-                <Text style={styles.actionText}>Config</Text>
-              </TouchableOpacity>
+              {quickActions.map((action) => (
+                <TouchableOpacity
+                  key={action.id}
+                  style={styles.actionCard}
+                  onPress={() => router.push(action.path)}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
+                    <Ionicons name={action.icon} size={24} color="white" />
+                  </View>
+                  <Text style={styles.actionText}>{action.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </ScrollView>
