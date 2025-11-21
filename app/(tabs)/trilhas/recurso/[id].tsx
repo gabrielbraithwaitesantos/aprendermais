@@ -179,9 +179,9 @@ export default function RecursoViewer() {
       >
         <View style={styles.pageTitle}>
           <View>
-            <Text style={[styles.title, { color: theme.text }]}>Recurso</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Provas e Gabaritos</Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              Conteudo oficial que abre em nova aba no navegador.
+              PDFs oficiais do ENEM e vestibulares — abra em nova aba.
             </Text>
           </View>
           <Ionicons name="document-text-outline" size={22} color={theme.textMuted} />

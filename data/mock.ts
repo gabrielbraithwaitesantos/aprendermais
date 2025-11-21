@@ -31,11 +31,19 @@ export const recursos: Recurso[] = [
     id: 'enem-2023-caderno-azul',
     trilhaId: 'enem-base',
     tipo: 'PDF_OFICIAL',
-    titulo: 'ENEM 2023 - Caderno Azul (1o dia) - Prova Objetiva',
-    urlOficial:
-      'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf',
+    titulo: 'ENEM 2023 - 1º dia - Caderno Azul',
+    urlOficial: 'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf',
     origem: 'INEP',
-    observacao: 'Link oficial publico do INEP.',
+    observacao: 'Link oficial do INEP (provas e gabaritos).',
+  },
+  {
+    id: 'enem-2023-caderno-amarelo',
+    trilhaId: 'enem-base',
+    tipo: 'PDF_OFICIAL',
+    titulo: 'ENEM 2023 - 2º dia - Caderno Amarelo',
+    urlOficial: 'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D2_CD2.pdf',
+    origem: 'INEP',
+    observacao: 'Link oficial do INEP (provas e gabaritos).',
   },
   {
     id: 'video-funcoes-1-grau',
