@@ -3,8 +3,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../store/themeStore';
-import { useStudyTracks } from '../../hooks/useStudyTracks';
+import { useThemeColors } from '../../../store/themeStore';
+import { useStudyTracks } from '../../../hooks/useStudyTracks';
 
 export default function QuizYearScreen() {
   const { year, exam } = useLocalSearchParams<{ year?: string; exam?: string }>();
