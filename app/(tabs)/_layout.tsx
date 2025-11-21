@@ -78,6 +78,22 @@ export default function TabLayout() {
     return () => subscription.remove();
   }, [closeMore, moreOpen]);
 
+  // Fix: no web um <select> acessível aparece como setinha; escondemos.
+  useEffect(() => {
+    if (!isWeb) return;
+    const selects = Array.from(document.querySelectorAll('select'));
+    const prevDisplay = new Map<HTMLElement, string>();
+    selects.forEach((el) => {
+      prevDisplay.set(el as HTMLElement, (el as HTMLElement).style.display);
+      (el as HTMLElement).style.display = 'none';
+    });
+    return () => {
+      prevDisplay.forEach((display, el) => {
+        el.style.display = display;
+      });
+    };
+  }, []);
+
   return (
     <>
       <Tabs
