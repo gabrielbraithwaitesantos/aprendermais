@@ -98,32 +98,14 @@ export default function QuizScreen() {
   const isWide = width > 760;
   const cardWidth = isWide ? '48%' : '100%';
 
-  const groupedByYearDay = useMemo(() => {
-    const result: Record<string, Record<string, ResourceItem[]>> = {};
+  const yearsAvailable = useMemo(() => {
+    const set = new Set<string>();
     activeResources.forEach((item) => {
-      const match = /ENEM\s+(\d{4}).*(1º dia|2º dia)/i.exec(item.title || '');
-      const year = match?.[1] || 'Outros';
-      const day = match?.[2] || 'Geral';
-      if (!result[year]) result[year] = {};
-      if (!result[year][day]) result[year][day] = [];
-      result[year][day].push(item);
+      const match = /ENEM\s+(\d{4})/i.exec(item.title || '');
+      if (match?.[1]) set.add(match[1]);
     });
-    return result;
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [activeResources]);
-
-  const sortedYears = useMemo(() => Object.keys(groupedByYearDay).sort((a, b) => b.localeCompare(a)), [groupedByYearDay]);
-
-  const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (sortedYears.length > 0 && Object.keys(expandedYears).length === 0) {
-      setExpandedYears({ [sortedYears[0]]: true });
-    }
-  }, [sortedYears, expandedYears]);
-
-  const toggleYear = (year: string) => {
-    setExpandedYears((prev) => ({ ...prev, [year]: !prev[year] }));
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -267,60 +249,29 @@ export default function QuizScreen() {
                 <Text style={styles.emptyText}>
                   Adicione recursos (kind = resource) no Supabase para o exame {selectedExam}.
                 </Text>
+              ) : yearsAvailable.length === 0 ? (
+                <Text style={styles.emptyText}>Nao encontramos provas com ano no titulo.</Text>
               ) : (
-                sortedYears.map((year) => {
-                  const isOpen = expandedYears[year];
-                  return (
-                    <View key={year} style={{ gap: 10 }}>
-                      <TouchableOpacity style={styles.yearHeader} onPress={() => toggleYear(year)}>
+                <View style={{ gap: 10 }}>
+                  {yearsAvailable.map((year) => (
+                    <TouchableOpacity
+                      key={year}
+                      style={styles.yearHeader}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(tabs)/quiz/[year]',
+                          params: { year, exam: selectedExam },
+                        })
+                      }
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
                         <Text style={styles.yearTitle}>{`ENEM ${year}`}</Text>
-                        <Ionicons
-                          name={isOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
-                          size={18}
-                          color="#FFFFFF"
-                        />
-                      </TouchableOpacity>
-                      {isOpen
-                        ? Object.keys(groupedByYearDay[year])
-                            .sort()
-                            .map((day) => (
-                              <View key={day} style={{ gap: 6 }}>
-                                <View style={styles.dayPill}>
-                                  <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
-                                  <Text style={styles.dayText}>{day}</Text>
-                                </View>
-                                <View style={styles.resourceGrid}>
-                                  {groupedByYearDay[year][day].map((item) => (
-                                    <TouchableOpacity
-                                      key={item.id}
-                                      style={[styles.resourceCard, { width: cardWidth }]}
-                                      onPress={() =>
-                                        router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: item.id } })
-                                      }
-                                    >
-                                      <View style={[styles.resourceBadge, { backgroundColor: `${item.trackColor}22` }]}>
-                                        <Ionicons name="document-text-outline" size={16} color={item.trackColor} />
-                                        <Text style={[styles.resourceBadgeText, { color: item.trackColor }]}>
-                                          {item.trackExam?.toUpperCase() || selectedExam}
-                                        </Text>
-                                      </View>
-                                      <Text style={styles.resourceTitle}>{item.title}</Text>
-                                      <Text style={styles.resourceSubtitle} numberOfLines={2}>
-                                        {item.description || 'PDF oficial do exame.'}
-                                      </Text>
-                                      <View style={styles.resourceMeta}>
-                                        <Ionicons name="open-outline" size={14} color="#FFFFFF" />
-                                        <Text style={styles.resourceMetaText}>Abrir PDF</Text>
-                                      </View>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              </View>
-                            ))
-                        : null}
-                    </View>
-                  );
-                })
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
           </View>
@@ -572,21 +523,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  dayPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  dayText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12,
   },
   resourceBadge: {
     flexDirection: 'row',
