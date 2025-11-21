@@ -92,6 +92,7 @@ export default function TabLayout() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             borderRadius: 35,
             borderTopWidth: 0,
+            overflow: 'hidden',
             ...tabBarShadow,
           },
           tabBarItemStyle: { paddingVertical: 6 },
