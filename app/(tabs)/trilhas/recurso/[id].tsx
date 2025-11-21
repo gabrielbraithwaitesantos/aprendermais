@@ -218,9 +218,9 @@ export default function RecursoViewer() {
         {resource.resource_url ? (
           isWeb ? (
             <View style={[styles.viewerFallback, { backgroundColor: themeName === 'dark' ? '#0B1220' : '#F3F4F6' }]}>
-              <Ionicons name="alert-circle-outline" size={24} color={theme.text} />
+              <Ionicons name="link-outline" size={22} color={theme.text} />
               <Text style={[styles.errorText, { color: theme.text, textAlign: 'center' }]}>
-                Visualizacao embutida bloqueada pelo navegador. Use o botao para abrir o PDF em nova aba.
+                No navegador abrimos o PDF em uma nova aba.
               </Text>
               <TouchableOpacity style={styles.linkBtn} onPress={openInBrowser}>
                 <Ionicons name="open-outline" size={16} color={theme.text} />
