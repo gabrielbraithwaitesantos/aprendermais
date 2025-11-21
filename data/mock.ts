@@ -28,12 +28,12 @@ export const trilhas: Trilha[] = [
 // Recursos (mock)
 export const recursos: Recurso[] = [
   {
-    id: 'enem-2022-caderno-azul',
+    id: 'enem-2023-caderno-azul',
     trilhaId: 'enem-base',
     tipo: 'PDF_OFICIAL',
-    titulo: 'ENEM 2022 - Caderno Azul (1o dia) - Prova Objetiva',
+    titulo: 'ENEM 2023 - Caderno Azul (1o dia) - Prova Objetiva',
     urlOficial:
-      'https://download.inep.gov.br/educacao_basica/enem/provas/2022/1_dia_caderno_1_azul_aplicacao_regular.pdf',
+      'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf',
     origem: 'INEP',
     observacao: 'Link oficial publico do INEP.',
   },

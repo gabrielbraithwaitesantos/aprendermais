@@ -33,7 +33,9 @@ type ResourceRow = {
 const GOOGLE_VIEWER = 'https://docs.google.com/gview?embedded=1&url=';
 const BROKEN_URLS: Record<string, string> = {
   'https://download.inep.gov.br/educacao_basica/enem/provas/2023/1_dia_caderno_1_azul_aplicacao_regular.pdf':
-    'https://download.inep.gov.br/educacao_basica/enem/provas/2022/1_dia_caderno_1_azul_aplicacao_regular.pdf',
+    'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf',
+  'https://download.inep.gov.br/educacao_basica/enem/provas/2022/1_dia_caderno_1_azul_aplicacao_regular.pdf':
+    'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf',
 };
 
 function getHost(url?: string | null) {
@@ -172,7 +174,7 @@ export default function RecursoViewer() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 64 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}
         showsVerticalScrollIndicator={false}
       >
         <View

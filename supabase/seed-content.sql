@@ -89,7 +89,7 @@ from (
     ('enem-inicio-rapido', 'Funcao do 1 grau', 1, 'lesson', null, null, null, 20),
     ('enem-inicio-rapido', 'Equacoes do 2 grau', 2, 'lesson', null, null, null, 25),
     ('enem-inicio-rapido', 'Sistema Solar', 3, 'lesson', null, null, null, 20),
-    ('enem-inicio-rapido', null, 4, 'resource', 'ENEM 2022 caderno azul', 'PDF oficial para pratica.', 'https://download.inep.gov.br/educacao_basica/enem/provas/2022/1_dia_caderno_1_azul_aplicacao_regular.pdf', 40),
+    ('enem-inicio-rapido', null, 4, 'resource', 'ENEM 2023 caderno azul', 'PDF oficial para pratica.', 'https://download.inep.gov.br/enem/provas_e_gabaritos/2023_PV_impresso_D1_CD1.pdf', 40),
 
     ('enem-redacao', 'Redacao ENEM: estrutura', 1, 'lesson', null, null, null, 30),
     ('enem-redacao', null, 2, 'resource', 'Guia do participante ENEM', 'Guia oficial de redacao do INEP.', 'https://download.inep.gov.br/educacao_basica/enem/guia_do_participante_redacao_enem.pdf', 25),
