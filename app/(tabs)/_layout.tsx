@@ -90,6 +90,14 @@ export default function TabLayout() {
         nav[role="tablist"] select {
           display: none !important;
         }
+        /* Em alguns navegadores/web a lib cria um botao overflow ("More") com um triangulo. */
+        nav[role="tablist"] button[aria-label*="More"],
+        nav[role="tablist"] button[aria-label*="more"],
+        nav[role="tablist"] button[aria-label*="overflow"],
+        nav[role="tablist"] button[aria-label*="Dropdown"],
+        nav[role="tablist"] button[aria-label*="dropdown"] {
+          display: none !important;
+        }
       `;
       document.head.appendChild(styleEl);
     }
