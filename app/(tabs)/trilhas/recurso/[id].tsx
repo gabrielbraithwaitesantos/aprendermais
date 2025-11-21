@@ -177,6 +177,16 @@ export default function RecursoViewer() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.pageTitle}>
+          <View>
+            <Text style={[styles.title, { color: theme.text }]}>Recurso</Text>
+            <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+              Conteudo oficial que abre em nova aba no navegador.
+            </Text>
+          </View>
+          <Ionicons name="document-text-outline" size={22} color={theme.textMuted} />
+        </View>
+
         <View
           style={[
             styles.notice,
@@ -196,7 +206,7 @@ export default function RecursoViewer() {
               {resource.title || 'Recurso oficial'}
             </Text>
             <Text style={[styles.headerSub, { color: theme.textMuted }]}>
-              {resource.track?.title || 'Trilha oficial'} - {host}
+              {resource.track?.title || 'Trilha oficial'} — {host}
             </Text>
           </View>
           <TouchableOpacity style={styles.headerAction} onPress={openInBrowser}>
@@ -281,6 +291,16 @@ export default function RecursoViewer() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingTop: 10, gap: 12 },
+  pageTitle: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: { fontSize: 22, fontWeight: '800' },
+  subtitle: { fontSize: 13 },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
