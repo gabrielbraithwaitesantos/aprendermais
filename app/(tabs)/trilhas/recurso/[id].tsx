@@ -112,7 +112,7 @@ export default function RecursoViewer() {
     fetchResource();
   }, [id]);
 
-  const useGoogleViewer = Platform.OS === 'android' || isWeb;
+  const useGoogleViewer = Platform.OS === 'android'; // Google viewer bloqueia embed no web (X-Frame-Options)
   const pdfUri = useMemo(() => {
     if (!resource?.resource_url) return null;
     const fixed = BROKEN_URLS[resource.resource_url] ?? resource.resource_url;
@@ -206,7 +206,18 @@ export default function RecursoViewer() {
         </View>
 
         {resource.resource_url ? (
-          viewerError ? (
+          isWeb ? (
+            <View style={[styles.viewerFallback, { backgroundColor: themeName === 'dark' ? '#0B1220' : '#F3F4F6' }]}>
+              <Ionicons name="alert-circle-outline" size={24} color={theme.text} />
+              <Text style={[styles.errorText, { color: theme.text, textAlign: 'center' }]}>
+                Visualizacao embutida bloqueada pelo navegador. Use o botao para abrir o PDF em nova aba.
+              </Text>
+              <TouchableOpacity style={styles.linkBtn} onPress={openInBrowser}>
+                <Ionicons name="open-outline" size={16} color={theme.text} />
+                <Text style={[styles.linkBtnText, { color: theme.text }]}>Abrir o PDF</Text>
+              </TouchableOpacity>
+            </View>
+          ) : viewerError ? (
             <View style={[styles.viewerFallback, { backgroundColor: themeName === 'dark' ? '#0B1220' : '#F3F4F6' }]}>
               <Ionicons name="alert-circle-outline" size={24} color={theme.text} />
               <Text style={[styles.errorText, { color: theme.text }]}>{viewerError}</Text>
