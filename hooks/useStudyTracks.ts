@@ -96,7 +96,7 @@ export function useStudyTracks() {
 
   const resources = useMemo(() => {
     const allResources: Array<
-      StudyTrackItem & { trackTitle: string; trackSlug: string; trackColor: string }
+      StudyTrackItem & { trackTitle: string; trackSlug: string; trackColor: string; trackExam: string }
     > = [];
     effectiveTracks.forEach((track) => {
       track.items
@@ -107,6 +107,7 @@ export function useStudyTracks() {
             trackTitle: track.title,
             trackSlug: track.slug,
             trackColor: track.color_hex,
+            trackExam: track.exam || 'geral',
           })
         );
     });

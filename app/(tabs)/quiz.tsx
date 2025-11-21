@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,16 +16,22 @@ import { useThemeColors } from '../../store/themeStore';
 import { useQuizBank } from '../../hooks/useQuizBank';
 import { useStudyTracks } from '../../hooks/useStudyTracks';
 
+type ResourceItem = ReturnType<typeof useStudyTracks>['resources'][number] & {
+  trackExam?: string;
+};
+
 export default function QuizScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const theme = useThemeColors();
+  const { width } = useWindowDimensions();
   const bottomSpace = insets.bottom + 140;
   const { questions, loading, error, exams, subjects, randomQuestion } = useQuizBank();
   const { resources } = useStudyTracks();
   const [currentQuestion, setCurrentQuestion] = useState(randomQuestion || null);
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [selectedExam, setSelectedExam] = useState<string>('ENEM');
 
   useEffect(() => {
     if (!currentQuestion && randomQuestion) {
@@ -69,7 +76,27 @@ export default function QuizScreen() {
     setRevealed(true);
   };
 
-  const resourcesPreview = resources.slice(0, 3);
+  const examResources = useMemo(() => {
+    const grouped: Record<string, ResourceItem[]> = {};
+    resources.forEach((item) => {
+      const examKey = (item as any).trackExam ? String((item as any).trackExam).toUpperCase() : 'GERAL';
+      if (!grouped[examKey]) grouped[examKey] = [];
+      grouped[examKey].push(item as ResourceItem);
+    });
+    return grouped;
+  }, [resources]);
+
+  const examList = useMemo(() => Object.keys(examResources), [examResources]);
+
+  useEffect(() => {
+    if (!examResources[selectedExam] && examList.length > 0) {
+      setSelectedExam(examList.includes('ENEM') ? 'ENEM' : examList[0]);
+    }
+  }, [examList, examResources, selectedExam]);
+
+  const activeResources = examResources[selectedExam] || [];
+  const isWide = width > 760;
+  const cardWidth = isWide ? '48%' : '100%';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -85,137 +112,163 @@ export default function QuizScreen() {
             paddingBottom: bottomSpace,
             gap: 24,
             paddingTop: 16,
+            alignItems: 'center',
           }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>Quiz & Provas</Text>
-            <Text style={styles.subtitle}>Questões reais alimentadas pelo Supabase.</Text>
-          </View>
-
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color="#FFFFFF" />
-              <Text style={styles.loadingText}>Carregando banco de perguntas...</Text>
+          <View style={styles.maxWidth}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Quiz & Provas</Text>
+              <Text style={styles.subtitle}>Questoes reais alimentadas pelo Supabase.</Text>
             </View>
-          ) : error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
 
-          {/* Categorias */}
-          <View>
-            <Text style={styles.sectionTitle}>Simulados por exame</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-              {categories.map((cat) => (
-                <TouchableOpacity key={cat.id} style={styles.examCard}>
-                  <View style={styles.examIcon}>
-                    <Ionicons name="ribbon-outline" size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.examTitle}>{cat.title}</Text>
-                  <Text style={styles.examSubtitle}>{cat.questions} questões</Text>
+            {loading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.loadingText}>Carregando banco de perguntas...</Text>
+              </View>
+            ) : error ? (
+              <Text style={styles.errorText}>{error}</Text>
+            ) : null}
+
+            {/* Categorias */}
+            <View>
+              <Text style={styles.sectionTitle}>Simulados por exame</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                {categories.map((cat) => (
+                  <TouchableOpacity key={cat.id} style={styles.examCard}>
+                    <View style={styles.examIcon}>
+                      <Ionicons name="ribbon-outline" size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.examTitle}>{cat.title}</Text>
+                    <Text style={styles.examSubtitle}>{cat.questions} questoes</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Questao destaque */}
+            <View style={styles.questionCard}>
+              <View style={styles.questionHeader}>
+                <View style={styles.questionBadge}>
+                  <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
+                  <Text style={styles.questionBadgeText}>{currentQuestion?.exam?.toUpperCase() || 'ENEM'}</Text>
+                </View>
+                <TouchableOpacity onPress={handleShuffle} style={styles.shuffleBtn}>
+                  <Ionicons name="shuffle" size={16} color="#FFFFFF" />
+                  <Text style={styles.shuffleText}>Nova questao</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Questão destaque */}
-          <View style={styles.questionCard}>
-            <View style={styles.questionHeader}>
-              <View style={styles.questionBadge}>
-                <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
-                <Text style={styles.questionBadgeText}>{currentQuestion?.exam?.toUpperCase() || 'ENEM'}</Text>
               </View>
-              <TouchableOpacity onPress={handleShuffle} style={styles.shuffleBtn}>
-                <Ionicons name="shuffle" size={16} color="#FFFFFF" />
-                <Text style={styles.shuffleText}>Nova questão</Text>
-              </TouchableOpacity>
-            </View>
-            {currentQuestion ? (
-              <>
-                <Text style={styles.questionText}>{currentQuestion.question}</Text>
-                <View style={{ gap: 8, marginTop: 12 }}>
-                  {currentQuestion.options.map((option, index) => {
-                    const isCorrect = revealed && currentQuestion.correct_option === index + 1;
-                    const isSelected = selected === index + 1;
-                    return (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => handleSelect(index + 1)}
-                        style={[
-                          styles.optionCard,
-                          isSelected && { borderColor: '#60A5FA', backgroundColor: 'rgba(96,165,250,0.18)' },
-                          isCorrect && { borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.15)' },
-                        ]}
-                      >
-                        <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
-                        <Text style={styles.optionText}>{option}</Text>
-                        {isCorrect ? <Ionicons name="checkmark" size={18} color="#10B981" /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {revealed && currentQuestion.explanation ? (
-                  <View style={styles.explanation}>
-                    <Text style={styles.explanationTitle}>Explicação</Text>
-                    <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
+              {currentQuestion ? (
+                <>
+                  <Text style={styles.questionText}>{currentQuestion.question}</Text>
+                  <View style={{ gap: 8, marginTop: 12 }}>
+                    {currentQuestion.options.map((option, index) => {
+                      const isCorrect = revealed && currentQuestion.correct_option === index + 1;
+                      const isSelected = selected === index + 1;
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => handleSelect(index + 1)}
+                          style={[
+                            styles.optionCard,
+                            isSelected && { borderColor: '#60A5FA', backgroundColor: 'rgba(96,165,250,0.18)' },
+                            isCorrect && { borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.15)' },
+                          ]}
+                        >
+                          <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
+                          <Text style={styles.optionText}>{option}</Text>
+                          {isCorrect ? <Ionicons name="checkmark" size={18} color="#10B981" /> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                ) : null}
-              </>
-            ) : (
-              <Text style={styles.emptyText}>Cadastre perguntas na tabela quiz_questions para praticar.</Text>
-            )}
-          </View>
-
-          {/* Estatísticas por matéria */}
-          <View style={{ gap: 12 }}>
-            <Text style={styles.sectionTitle}>Desempenho por matéria</Text>
-            {subjectStats.map((subject) => (
-              <View key={subject.id} style={styles.subjectCard}>
-                <View>
-                  <Text style={styles.subjectName}>{subject.title}</Text>
-                  <Text style={styles.subjectInfo}>
-                    {subject.completed}/{subject.total} questões resolvidas
-                  </Text>
-                </View>
-                <View style={styles.subjectAccuracy}>
-                  <Text style={styles.subjectAccuracyScore}>{subject.accuracy}%</Text>
-                  <Text style={styles.subjectAccuracyLabel}>Precisão</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {/* Recursos oficiais */}
-          <View style={{ gap: 12 }}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recursos oficiais</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/trilha')} style={styles.sectionAction}>
-                <Ionicons name="map-outline" size={14} color="#FFFFFF" />
-                <Text style={styles.sectionActionText}>Ver trilhas</Text>
-              </TouchableOpacity>
+                  {revealed && currentQuestion.explanation ? (
+                    <View style={styles.explanation}>
+                      <Text style={styles.explanationTitle}>Explicacao</Text>
+                      <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
+                    </View>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.emptyText}>Cadastre perguntas na tabela quiz_questions para praticar.</Text>
+              )}
             </View>
-            {resourcesPreview.length === 0 ? (
-              <Text style={styles.emptyText}>
-                Adicione itens kind = &apos;resource&apos; na tabela study_track_items para exibir aqui.
-              </Text>
-            ) : (
-              resourcesPreview.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.resourceCard}
-                  onPress={() => router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: item.id } })}
-                >
-                  <Ionicons name="document-text-outline" size={18} color="#4F46E5" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.resourceTitle}>{item.title}</Text>
-                    <Text style={styles.resourceSubtitle}>
-                      {item.description || 'Material complementar.'}
+
+            {/* Estatisticas por materia */}
+            <View style={{ gap: 12 }}>
+              <Text style={styles.sectionTitle}>Desempenho por materia</Text>
+              {subjectStats.map((subject) => (
+                <View key={subject.id} style={styles.subjectCard}>
+                  <View>
+                    <Text style={styles.subjectName}>{subject.title}</Text>
+                    <Text style={styles.subjectInfo}>
+                      {subject.completed}/{subject.total} questoes resolvidas
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-              ))
-            )}
+                  <View style={styles.subjectAccuracy}>
+                    <Text style={styles.subjectAccuracyScore}>{subject.accuracy}%</Text>
+                    <Text style={styles.subjectAccuracyLabel}>Precisao</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Provas oficiais */}
+            <View style={{ gap: 12 }}>
+              <View style={{ gap: 4 }}>
+                <Text style={styles.sectionTitle}>Provas e gabaritos oficiais</Text>
+                <Text style={styles.subtitle}>Veja os PDFs do ENEM direto por aqui.</Text>
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examChips}>
+                {examList.map((examKey) => (
+                  <TouchableOpacity
+                    key={examKey}
+                    style={[
+                      styles.examChip,
+                      selectedExam === examKey && { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: '#FFFFFF' },
+                    ]}
+                    onPress={() => setSelectedExam(examKey)}
+                  >
+                    <Text style={styles.examChipText}>{examKey}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {activeResources.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  Adicione recursos (kind = resource) no Supabase para o exame {selectedExam}.
+                </Text>
+              ) : (
+                <View style={styles.resourceGrid}>
+                  {activeResources.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.resourceCard, { width: cardWidth }]}
+                      onPress={() =>
+                        router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: item.id } })
+                      }
+                    >
+                      <View style={[styles.resourceBadge, { backgroundColor: `${item.trackColor}22` }]}>
+                        <Ionicons name="document-text-outline" size={16} color={item.trackColor} />
+                        <Text style={[styles.resourceBadgeText, { color: item.trackColor }]}>
+                          {item.trackExam?.toUpperCase() || selectedExam}
+                        </Text>
+                      </View>
+                      <Text style={styles.resourceTitle}>{item.title}</Text>
+                      <Text style={styles.resourceSubtitle} numberOfLines={2}>
+                        {item.description || 'PDF oficial do exame.'}
+                      </Text>
+                      <View style={styles.resourceMeta}>
+                        <Ionicons name="open-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.resourceMetaText}>Abrir PDF</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -258,6 +311,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  maxWidth: {
+    width: '100%',
+    maxWidth: 1000,
+    alignSelf: 'center',
+    gap: 24,
   },
   examCard: {
     width: 140,
@@ -407,12 +466,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   resourceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
+    gap: 10,
+    padding: 14,
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  resourceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   resourceTitle: {
     color: '#FFFFFF',
@@ -422,5 +486,45 @@ const styles = StyleSheet.create({
   resourceSubtitle: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
+  },
+  examChips: {
+    gap: 10,
+    paddingRight: 6,
+  },
+  examChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    marginRight: 6,
+  },
+  examChipText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  resourceBadge: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  resourceBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  resourceMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+    opacity: 0.8,
+  },
+  resourceMetaText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

@@ -11,7 +11,7 @@ export default function TrilhaScreen() {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
   const router = useRouter();
-  const { tracks, loading, error, resources } = useStudyTracks();
+  const { tracks, loading, error } = useStudyTracks();
 
   const heroTrack = tracks[0];
 
@@ -20,107 +20,81 @@ export default function TrilhaScreen() {
       <LinearGradient colors={theme.gradient} style={styles.container} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 140, gap: 28 }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 140 }]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>Trilhas inteligentes</Text>
-            <Text style={styles.subtitle}>Sequencias curtas alimentadas pelos dados reais do Supabase.</Text>
-          </View>
-
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color="#FFFFFF" />
-              <Text style={styles.loadingText}>Carregando trilhas...</Text>
+          <View style={styles.maxWidth}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Trilhas inteligentes</Text>
+              <Text style={styles.subtitle}>Sequencias curtas alimentadas pelos dados reais do Supabase.</Text>
             </View>
-          ) : error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : tracks.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>Sem trilhas cadastradas</Text>
-              <Text style={styles.emptySubtitle}>
-                Insira novas trilhas na tabela study_tracks do Supabase para que seus alunos vejam aqui.
-              </Text>
-            </View>
-          ) : (
-            <>
-              {heroTrack ? (
-                <TouchableOpacity
-                  style={[styles.heroCard, { backgroundColor: heroTrack.color_hex || '#4F46E5' }]}
-                  activeOpacity={0.9}
-                  onPress={() => router.push({ pathname: '/(tabs)/trilhas/[id]', params: { id: heroTrack.slug } })}
-                >
-                  <View style={styles.heroBadge}>
-                    <Ionicons name="map-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.heroBadgeText}>Trilha em destaque</Text>
-                  </View>
-                  <Text style={styles.heroTitle}>{heroTrack.title}</Text>
-                  <Text style={styles.heroDescription} numberOfLines={2}>
-                    {heroTrack.description || 'Plano dinamico com recursos oficiais.'}
-                  </Text>
-                  <View style={styles.heroMeta}>
-                    <View>
-                      <Text style={styles.heroMetaValue}>{heroTrack.exam?.toUpperCase() || 'GERAL'}</Text>
-                      <Text style={styles.heroMetaLabel}>Prova alvo</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.heroMetaValue}>{heroTrack.items.length}</Text>
-                      <Text style={styles.heroMetaLabel}>Etapas</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ) : null}
 
-              <View style={styles.trackList}>
-                {tracks.map((track) => (
+            {loading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.loadingText}>Carregando trilhas...</Text>
+              </View>
+            ) : error ? (
+              <Text style={styles.errorText}>{error}</Text>
+            ) : tracks.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>Sem trilhas cadastradas</Text>
+                <Text style={styles.emptySubtitle}>
+                  Insira novas trilhas na tabela study_tracks do Supabase para que seus alunos vejam aqui.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {heroTrack ? (
                   <TouchableOpacity
-                    key={track.id}
-                    style={styles.trackCard}
-                    onPress={() => router.push({ pathname: '/(tabs)/trilhas/[id]', params: { id: track.slug } })}
+                    style={[styles.heroCard, { backgroundColor: heroTrack.color_hex || '#4F46E5' }]}
+                    activeOpacity={0.9}
+                    onPress={() => router.push({ pathname: '/(tabs)/trilhas/[id]', params: { id: heroTrack.slug } })}
                   >
-                    <View style={[styles.trackIcon, { backgroundColor: track.color_hex + '33' }]}>
-                      <Ionicons name="walk-outline" size={20} color={track.color_hex} />
+                    <View style={styles.heroBadge}>
+                      <Ionicons name="map-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.heroBadgeText}>Trilha em destaque</Text>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.trackName}>{track.title}</Text>
-                      <Text style={styles.trackInfo}>
-                        {track.exam?.toUpperCase() || 'EXAME'} • {track.items.length} passos
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recursos oficiais</Text>
-                {resources.length === 0 ? (
-                  <Text style={styles.emptySubtitle}>
-                    Cadastre items com kind = &apos;resource&apos; na tabela study_track_items para aparecerem aqui.
-                  </Text>
-                ) : (
-                  resources.map((resource) => (
-                    <TouchableOpacity
-                      key={resource.id}
-                      style={styles.resourceCard}
-                      onPress={() =>
-                        router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: resource.id } })
-                      }
-                    >
-                      <View style={styles.resourceBadge}>
-                        <Ionicons name="document-text-outline" size={14} color="#4F46E5" />
-                        <Text style={styles.resourceBadgeText}>{resource.trackTitle}</Text>
+                    <Text style={styles.heroTitle}>{heroTrack.title}</Text>
+                    <Text style={styles.heroDescription} numberOfLines={2}>
+                      {heroTrack.description || 'Plano dinamico com recursos oficiais.'}
+                    </Text>
+                    <View style={styles.heroMeta}>
+                      <View>
+                        <Text style={styles.heroMetaValue}>{heroTrack.exam?.toUpperCase() || 'GERAL'}</Text>
+                        <Text style={styles.heroMetaLabel}>Prova alvo</Text>
                       </View>
-                      <Text style={styles.resourceTitle}>{resource.title}</Text>
-                      {resource.description ? (
-                        <Text style={styles.resourceDescription}>{resource.description}</Text>
-                      ) : null}
+                      <View>
+                        <Text style={styles.heroMetaValue}>{heroTrack.items.length}</Text>
+                        <Text style={styles.heroMetaLabel}>Etapas</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
+
+                <View style={styles.trackList}>
+                  {tracks.map((track) => (
+                    <TouchableOpacity
+                      key={track.id}
+                      style={styles.trackCard}
+                      onPress={() => router.push({ pathname: '/(tabs)/trilhas/[id]', params: { id: track.slug } })}
+                    >
+                      <View style={[styles.trackIcon, { backgroundColor: track.color_hex + '33' }]}>
+                        <Ionicons name="walk-outline" size={20} color={track.color_hex} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.trackName}>{track.title}</Text>
+                        <Text style={styles.trackInfo}>
+                          {`${track.exam?.toUpperCase() || 'EXAME'} - ${track.items.length} passos`}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
                     </TouchableOpacity>
-                  ))
-                )}
-              </View>
-            </>
-          )}
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
@@ -130,6 +104,16 @@ export default function TrilhaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    gap: 28,
+    alignItems: 'center',
+  },
+  maxWidth: {
+    width: '100%',
+    maxWidth: 1000,
+    gap: 24,
   },
   header: {
     gap: 6,
