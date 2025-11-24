@@ -13,6 +13,7 @@ export default function TrilhaDetalhe() {
   const router = useRouter();
   const { trackMap, loading, error } = useStudyTracks();
   const trilha = id ? trackMap.get(id) : undefined;
+  const accent = trilha?.color_hex || '#4F46E5';
 
   const lessons = useMemo(
     () => trilha?.items.filter((item) => item.kind === 'lesson') ?? [],
@@ -45,100 +46,106 @@ export default function TrilhaDetalhe() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <LinearGradient colors={[trilha.color_hex, '#60A5FA']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <View style={styles.heroHead}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.heroTitle}>{trilha.title}</Text>
-          </View>
-          <Text style={styles.heroDescription}>{trilha.description || 'Sequencia de estudo personalizada.'}</Text>
-          <View style={styles.heroStats}>
-            <View>
-              <Text style={styles.heroStatValue}>{trilha.exam?.toUpperCase() || 'GERAL'}</Text>
-              <Text style={styles.heroStatLabel}>Prova alvo</Text>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40, alignItems: 'center' }}>
+        <View style={styles.maxWidth}>
+          <LinearGradient
+            colors={[accent, '#111827']}
+            style={styles.hero}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.heroHead}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={18} color="#0B1224" />
+              </TouchableOpacity>
+              <Text style={styles.heroTitle}>{trilha.title}</Text>
             </View>
-            <View>
-              <Text style={styles.heroStatValue}>{trilha.items.length}</Text>
-              <Text style={styles.heroStatLabel}>Passos</Text>
+            <Text style={styles.heroDescription}>{trilha.description || 'Sequencia de estudo personalizada.'}</Text>
+            <View style={styles.heroChips}>
+              {[trilha.exam?.toUpperCase() || 'GERAL', `${trilha.items.length} passos`, `${lessons.length} aulas`].map(
+                (chip) => (
+                  <View key={chip} style={[styles.heroChip, { borderColor: accent + '55' }]}>
+                    <Text style={styles.heroChipText}>{chip}</Text>
+                  </View>
+                )
+              )}
             </View>
-            <View>
-              <Text style={styles.heroStatValue}>{lessons.length}</Text>
-              <Text style={styles.heroStatLabel}>Aulas</Text>
-            </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
 
-        <View style={{ padding: 20, gap: 20 }}>
-          <View>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Passos da trilha</Text>
-            {lessons.map((item, index) => (
-              <LinearGradient
-                key={item.id}
-                colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.08)']}
-                style={styles.stepCard}
-              >
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>{index + 1}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>{item.lesson?.title || item.title || 'Aula'}</Text>
-                  <Text style={styles.stepSubtitle}>
-                    {item.lesson?.module
-                      ? `${item.lesson.module} - ${item.estimated_minutes || 20} min`
-                      : `${item.estimated_minutes || 20} min estimados`}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.stepAction}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(tabs)/videos',
-                    })
-                  }
+          <View style={styles.cardSurface}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Passos da trilha</Text>
+              <View style={[styles.sectionTag, { borderColor: accent + '55', backgroundColor: accent + '22' }]}>
+                <Ionicons name="pulse-outline" size={14} color={accent} />
+                <Text style={[styles.sectionTagText, { color: accent }]}>Sugestao</Text>
+              </View>
+            </View>
+            <View style={styles.stepGrid}>
+              {lessons.map((item, index) => (
+                <LinearGradient
+                  key={item.id}
+                  colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
+                  style={styles.stepCard}
                 >
-                  <Ionicons name="play-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.stepActionText}>Ver aula</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            ))}
+                  <View style={[styles.stepBadge, { backgroundColor: accent + '22', borderColor: accent + '55' }]}>
+                    <Text style={[styles.stepBadgeText, { color: accent }]}>{index + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={styles.stepTitle}>{item.lesson?.title || item.title || 'Aula'}</Text>
+                    <Text style={styles.stepSubtitle}>
+                      {item.lesson?.module
+                        ? `${item.lesson.module} · ${item.estimated_minutes || 20} min`
+                        : `${item.estimated_minutes || 20} min estimados`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.stepAction, { borderColor: accent + '66' }]}
+                    onPress={() => router.push({ pathname: '/(tabs)/videos' })}
+                  >
+                    <Ionicons name="play-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.stepActionText}>Ver aula</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              ))}
+              {lessons.length === 0 ? <Text style={styles.emptyText}>Nenhuma aula listada.</Text> : null}
+            </View>
           </View>
 
-          <View>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Recursos oficiais</Text>
+          <View style={styles.cardSurface}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Recursos oficiais</Text>
+              <View style={[styles.sectionTag, { borderColor: accent + '55', backgroundColor: accent + '22' }]}>
+                <Ionicons name="document-text-outline" size={14} color={accent} />
+                <Text style={[styles.sectionTagText, { color: accent }]}>PDF</Text>
+              </View>
+            </View>
             {resources.length === 0 ? (
               <Text style={styles.emptyText}>Essa trilha ainda nao possui materiais extras.</Text>
             ) : (
-              resources.map((resource) => (
-                <TouchableOpacity
-                  key={resource.id}
-                  style={[
-                    styles.resourceCard,
-                    {
-                      borderColor: 'rgba(255,255,255,0.18)',
-                      backgroundColor: 'rgba(255,255,255,0.12)',
-                      shadowColor: '#1E3A8A',
-                      shadowOpacity: 0.2,
-                      shadowRadius: 8,
-                      shadowOffset: { width: 0, height: 4 },
-                      elevation: 4,
-                    },
-                  ]}
-                  onPress={() =>
-                    router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: resource.id } })
-                  }
-                >
-                  <View style={styles.resourceBadge}>
-                    <Ionicons name="document-text-outline" size={14} color={trilha.color_hex || '#4F46E5'} />
-                    <Text style={[styles.resourceBadgeText, { color: trilha.color_hex || '#4F46E5' }]}>Oficial</Text>
-                  </View>
-                  <Text style={[styles.resourceTitle, { color: theme.text }]}>{resource.title}</Text>
-                  {resource.description ? (
-                    <Text style={[styles.resourceDescription, { color: theme.textMuted }]}>{resource.description}</Text>
-                  ) : null}
-                </TouchableOpacity>
-              ))
+              <View style={styles.resourceGrid}>
+                {resources.map((resource) => (
+                  <TouchableOpacity
+                    key={resource.id}
+                    style={[styles.resourceCard, { borderColor: accent + '33', backgroundColor: 'rgba(15,23,42,0.3)' }]}
+                    onPress={() =>
+                      router.push({ pathname: '/(tabs)/trilhas/recurso/[id]', params: { id: resource.id } })
+                    }
+                  >
+                    <View style={[styles.resourceBadge, { backgroundColor: accent + '22' }]}>
+                      <Ionicons name="download-outline" size={14} color={accent} />
+                      <Text style={[styles.resourceBadgeText, { color: accent }]}>Oficial</Text>
+                    </View>
+                    <Text style={[styles.resourceTitle, { color: theme.text }]} numberOfLines={2}>
+                      {resource.title}
+                    </Text>
+                    {resource.description ? (
+                      <Text style={[styles.resourceDescription, { color: theme.textMuted }]} numberOfLines={2}>
+                        {resource.description}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
           </View>
         </View>
@@ -149,10 +156,13 @@ export default function TrilhaDetalhe() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  maxWidth: { width: '100%', maxWidth: 1080, alignSelf: 'center', gap: 20 },
   hero: {
     padding: 24,
-    paddingTop: 48,
-    gap: 16,
+    paddingTop: 44,
+    gap: 14,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   heroHead: {
     flexDirection: 'row',
@@ -164,7 +174,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -179,24 +190,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  heroStats: {
-    flexDirection: 'row',
-    gap: 24,
+  heroChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  heroChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  heroStatValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  heroStatLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
+  heroChipText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  sectionTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  sectionTagText: { fontSize: 12, fontWeight: '800' },
+  cardSurface: {
+    backgroundColor: 'rgba(15,23,42,0.35)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    gap: 12,
+  },
+  stepGrid: { gap: 12 },
   stepCard: {
     borderRadius: 20,
     padding: 16,
@@ -211,7 +243,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -233,10 +265,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(15,23,42,0.3)',
+    backgroundColor: 'rgba(15,23,42,0.4)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
   },
   stepActionText: {
     color: '#FFFFFF',
@@ -247,13 +280,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    marginBottom: 12,
     gap: 6,
+  },
+  resourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  resourceCardInner: {
+    flex: 1,
   },
   resourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
   resourceBadgeText: {
     color: '#4F46E5',
