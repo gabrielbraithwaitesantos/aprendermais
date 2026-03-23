@@ -14,6 +14,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:web": "expo export --platform web",
+    "build:web:gh-pages": "expo export --platform web --public-url=/aprendermais/",
     "export:web": "expo export --platform web --non-interactive",
     "lint": "expo lint",
     "export": "node scripts/export.js",
