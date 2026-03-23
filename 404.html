@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting...</title>
+  <script>
+    // GitHub Pages 404 redirect for SPA
+    var pathParts = window.location.pathname.split('/');
+    var url = pathParts.slice(3).join('/');
+    if (url.length && !url.endsWith('.html')) {
+      url = '/#/' + url;
+    }
+    window.location.replace(window.location.protocol + '//' + window.location.host + '/aprendermais/' + url);
+  </script>
+</head>
+<body>
+</body>
+</html>
