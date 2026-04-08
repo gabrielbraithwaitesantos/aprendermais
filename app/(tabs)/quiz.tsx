@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -23,14 +22,7 @@ type ResourceItem = ReturnType<typeof useStudyTracks>['resources'][number] & {
   trackExam?: string;
 };
 
-const COLOR_OPTIONS: { id: 'azul' | 'amarelo' | 'verde' | 'branco' | 'cinza'; label: string; color: string; text?: string }[] =
-  [
-    { id: 'azul', label: 'Azul', color: '#2563EB' },
-    { id: 'amarelo', label: 'Amarelo', color: '#F59E0B' },
-    { id: 'verde', label: 'Verde', color: '#16A34A' },
-    { id: 'branco', label: 'Branco', color: '#E5E7EB', text: '#0F172A' },
-    { id: 'cinza', label: 'Cinza', color: '#9CA3AF', text: '#0F172A' },
-  ];
+const ACCENT_COLORS = ['#22D3EE', '#F97316', '#34D399', '#60A5FA', '#F472B6', '#A3E635'];
 
 export default function QuizScreen() {
   const insets = useSafeAreaInsets();
@@ -41,7 +33,6 @@ export default function QuizScreen() {
   const isWide = width > 760;
   const isTablet = width > 640;
   const bottomSpace = insets.bottom + 140;
-  const accentColors = ['#22D3EE', '#F97316', '#34D399', '#60A5FA', '#F472B6', '#A3E635'];
   const examCardWidth = isTablet ? 180 : 160;
   const { questions, loading, error, exams, subjects: quizSubjects, randomQuestion } = useQuizBank();
   const { resources } = useStudyTracks();
@@ -57,7 +48,7 @@ export default function QuizScreen() {
   const [currentQuestion, setCurrentQuestion] = useState(randomQuestion || null);
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const selectedExam = 'ENEM';
+  const [selectedExam, setSelectedExam] = useState('ENEM');
 
   useEffect(() => {
     if (!currentQuestion && randomQuestion) {
@@ -93,7 +84,7 @@ export default function QuizScreen() {
         accuracy: Math.min(100, Math.max(0, item.percent ?? 0)),
         completed: item.completed_lessons || 0,
         total: item.total_lessons || 0,
-        color: item.color_hex || accentColors[idx % accentColors.length],
+        color: item.color_hex || ACCENT_COLORS[idx % ACCENT_COLORS.length],
         source: 'progress' as const,
       }));
     }
@@ -104,10 +95,10 @@ export default function QuizScreen() {
       accuracy: 70 + Math.round(Math.random() * 20),
       completed: Math.round(item.count * 0.4),
       total: item.count,
-      color: accentColors[idx % accentColors.length],
+      color: ACCENT_COLORS[idx % ACCENT_COLORS.length],
       source: 'quiz' as const,
     }));
-  }, [progressSubjects, quizSubjects, accentColors]);
+  }, [progressSubjects, quizSubjects]);
 
   const handleShuffle = () => {
     if (questions.length === 0) return;
@@ -137,6 +128,13 @@ export default function QuizScreen() {
 
   const examList = useMemo(() => Object.keys(examResources), [examResources]);
 
+  useEffect(() => {
+    if (examList.length === 0) return;
+    if (!examList.includes(selectedExam)) {
+      setSelectedExam(examList.includes('ENEM') ? 'ENEM' : examList[0]);
+    }
+  }, [examList, selectedExam]);
+
   const activeResources = examResources[selectedExam] || [];
   const displayResources = activeResources;
 
@@ -151,14 +149,6 @@ export default function QuizScreen() {
 
   const rememberScroll = (y: number) => {
     lastScrollY.current = y;
-  };
-
-  const freezeToResources = () => {
-    const currentY = lastScrollY.current ?? 0;
-    const containerH = containerHeightRef.current || 0;
-    const maxY = Math.max(contentHeightRef.current - containerH, 0);
-    freezeGapRef.current = Math.max(maxY - currentY, 0);
-    freezeYRef.current = currentY;
   };
 
   const restoreIfPending = () => {
@@ -210,7 +200,7 @@ export default function QuizScreen() {
   );
   useLayoutEffect(() => {
     restoreIfPending();
-  }, [, , , selectedExam, displayResources.length]);
+  }, [selectedExam, displayResources.length]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -431,7 +421,7 @@ export default function QuizScreen() {
                   </View>
                 ) : (
                   categories.map((cat, idx) => {
-                    const color = accentColors[idx % accentColors.length];
+                    const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
                     const ratio = Math.min(100, Math.round((cat.questions / maxExamQuestions) * 100));
                     return (
                       <TouchableOpacity
@@ -499,7 +489,7 @@ export default function QuizScreen() {
 
               {activeResources.length === 0 ? (
                 <Text style={styles.emptyText}>
-                  Adicione recursos (kind = resource) no Supabase para o exame {selectedExam}.
+                  Adicione recursos (kind = resource) no Firebase para o exame {selectedExam}.
                 </Text>
               ) : displayResources.length === 0 ? (
                 <Text style={styles.emptyText}>

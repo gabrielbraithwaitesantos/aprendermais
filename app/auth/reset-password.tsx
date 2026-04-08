@@ -2,18 +2,21 @@ import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { confirmPasswordReset, updatePassword } from 'firebase/auth';
 
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useThemeColors } from '../../store/themeStore';
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/firebase';
 
 export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
   const router = useRouter();
+  const params = useLocalSearchParams<{ oobCode?: string }>();
+  const resetCode = Array.isArray(params.oobCode) ? params.oobCode[0] : params.oobCode;
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,8 +46,14 @@ export default function ResetPasswordScreen() {
 
     try {
       setLoading(true);
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+
+      if (resetCode) {
+        await confirmPasswordReset(auth, resetCode, password);
+      } else if (auth.currentUser) {
+        await updatePassword(auth.currentUser, password);
+      } else {
+        throw new Error('Link de redefinicao invalido ou expirado.');
+      }
 
       Alert.alert('Senha atualizada', 'Voce ja pode usar a nova senha para entrar.');
       router.replace('/auth/login');

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types/database';
-import { supabase } from '../lib/supabase';
+import { getUserProfile, updateUserProfile } from '../lib/firebaseData';
 
 interface UserState {
   profile: User | null;
@@ -17,14 +17,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchProfile: async (userId: string) => {
     set({ loading: true });
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      set({ profile: data, loading: false });
+      const profile = await getUserProfile(userId);
+      set({ profile, loading: false });
     } catch (error) {
       console.error('Error fetching profile:', error);
       set({ loading: false });
@@ -36,15 +30,10 @@ export const useUserStore = create<UserState>((set, get) => ({
     if (!profile) return;
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', profile.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      set({ profile: data });
+      const updated = await updateUserProfile(profile.id, updates);
+      if (updated) {
+        set({ profile: updated });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
     }

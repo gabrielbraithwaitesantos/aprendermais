@@ -57,7 +57,6 @@ export default function QuizYearScreen() {
 
   const restoreIfPending = () => {
     if (freezeYRef.current == null) return;
-    const targetY = freezeYRef.current;
     const gap = freezeGapRef.current;
     freezeYRef.current = null;
     freezeGapRef.current = 0;
@@ -84,8 +83,8 @@ export default function QuizYearScreen() {
         ? String((item as any).trackExam).toUpperCase() === String(exam || 'ENEM').toUpperCase()
         : true;
       const isGabarito = lower.includes('gabarito');
-      const isDay1 = lower.includes('1�� dia') || lower.includes('1 dia') || lower.includes('1º dia');
-      const isDay2 = lower.includes('2�� dia') || lower.includes('2 dia') || lower.includes('2º dia');
+      const isDay1 = /1(?:º)?\s+dia/i.test(title);
+      const isDay2 = /2(?:º)?\s+dia/i.test(title);
             const matchesColor =
         colorFilter === 'none' ||
         lower.includes(colorFilter) ||
@@ -99,7 +98,7 @@ export default function QuizYearScreen() {
         (filter === 'day2' && isDay2);
       const matchesQuery = query.trim().length === 0 || lower.includes(query.trim().toLowerCase());
       if (hasYear && examOk && matchesFilter && matchesQuery && matchesColor) {
-        const dayMatch = /(1�� dia|2�� dia|1º dia|2º dia)/i.exec(title);
+        const dayMatch = /(1º\s+dia|2º\s+dia|1\s+dia|2\s+dia)/i.exec(title);
         const day = dayMatch?.[1] || 'Dia 1/2';
         if (!result[day]) result[day] = [];
         result[day].push(item);
@@ -128,7 +127,7 @@ export default function QuizYearScreen() {
     }
   };
 
-  const prettyDay = (label: string) => label.replace('��', '\u00ba');
+  const prettyDay = (label: string) => label;
 
   const dayColor = (title?: string | null, fallback?: string) => {
     if (!title) return fallback || '#4F46E5';

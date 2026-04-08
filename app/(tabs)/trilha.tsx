@@ -46,7 +46,7 @@ export default function TrilhaScreen() {
               <View style={styles.emptyBox}>
                 <Text style={styles.emptyTitle}>Sem trilhas cadastradas</Text>
                 <Text style={styles.emptySubtitle}>
-                  Insira novas trilhas na tabela study_tracks do Supabase para que seus alunos vejam aqui.
+                  Insira novas trilhas na colecao study_tracks do Firebase para que seus alunos vejam aqui.
                 </Text>
               </View>
             ) : (

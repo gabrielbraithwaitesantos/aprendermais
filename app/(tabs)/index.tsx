@@ -1,22 +1,27 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeColors } from '../../store/themeStore';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useProgress } from '../../hooks/useProgress';
-
-const { width } = Dimensions.get('window');
 
 
 
 export default function DashboardScreen() {
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuthStore();
   const theme = useThemeColors();
   const router = useRouter();
+  const compact = width < 360;
+  const horizontalPadding = compact ? 14 : 20;
+  const gridGap = compact ? 12 : 16;
+  const gridColumns = compact ? 1 : 2;
+  const cardWidth: number | `${number}%` =
+    gridColumns === 1 ? '100%' : (width - horizontalPadding * 2 - gridGap) / 2;
   const {
     loading: progressLoading,
     refreshing: progressRefreshing,
@@ -119,7 +124,15 @@ export default function DashboardScreen() {
         end={{ x: 1, y: 1 }}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingHorizontal: horizontalPadding,
+              paddingTop: compact ? 20 : 28,
+            },
+          ]}
+        >
           <TouchableOpacity
             style={styles.headerLeft}
             activeOpacity={0.85}
@@ -133,8 +146,12 @@ export default function DashboardScreen() {
               />
             </View>
             <View style={styles.headerTextWrap}>
-              <Text style={styles.greeting}>Ola, {user?.user_metadata?.name || 'Estudante'}!</Text>
-              <Text style={styles.subtitle}>Continue aprendendo</Text>
+              <Text style={styles.greeting} numberOfLines={1}>
+                Ola, {user?.displayName || 'Estudante'}!
+              </Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                Continue aprendendo
+              </Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.profileButton} onPress={handleSignOut}>
@@ -143,14 +160,14 @@ export default function DashboardScreen() {
         </View>
 
         <ScrollView
-          style={styles.content}
+          style={[styles.content, { paddingHorizontal: horizontalPadding }]}
           contentContainerStyle={{ paddingBottom: insets.bottom + 140 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Progress Overview */}
           <View style={styles.progressSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Seu progresso</Text>
+              <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>Seu progresso</Text>
               <TouchableOpacity
                 style={styles.sectionAction}
                 onPress={refresh}
@@ -167,7 +184,7 @@ export default function DashboardScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.progressCard}>
+            <View style={[styles.progressCard, compact && styles.progressCardCompact]}>
               {progressError ? (
                 <Text style={styles.progressError}>{progressError}</Text>
               ) : null}
@@ -194,7 +211,7 @@ export default function DashboardScreen() {
                   <Text style={styles.progressText}>
                     {overview.totalLessons > 0
                       ? `${overview.completedLessons} de ${overview.totalLessons} aulas concluidas`
-                      : 'Cadastre aulas e materias no Supabase para liberar este grafico.'}
+                      : 'Cadastre aulas e materias no Firebase para liberar este grafico.'}
                   </Text>
                   <View style={styles.progressStats}>
                     <View style={styles.progressStat}>
@@ -218,53 +235,54 @@ export default function DashboardScreen() {
           {/* Subjects Grid */}
           <View style={styles.subjectsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Suas materias</Text>
+              <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>Suas materias</Text>
               {progressLoading || progressRefreshing ? <ActivityIndicator size="small" color="#FFFFFF" /> : null}
             </View>
             {hasSubjects ? (
-              <View style={styles.subjectsGrid}>
+              <View style={[styles.subjectsGrid, { gap: gridGap }]}>
                 {subjectProgress.map((subject) => {
                   const widthPercent = Math.min(100, Math.max(0, subject.percent));
                   const iconName = (subject.icon as any) || 'book-outline';
                   return (
-                    <Link
+                    <TouchableOpacity
                       key={subject.subject_id}
-                      href={{
-                        pathname: '/(tabs)/materias/[id]',
-                        params: {
-                          id: subject.subject_slug ?? subject.subject_id,
-                          name: subject.subject_name,
-                          color: subject.color_hex,
-                        },
-                      }}
-                      asChild
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(tabs)/materias/[id]',
+                          params: {
+                            id: subject.subject_slug ?? subject.subject_id,
+                            name: subject.subject_name,
+                            color: subject.color_hex,
+                          },
+                        } as any)
+                      }
+                      style={[styles.subjectCard, { width: cardWidth, padding: compact ? 16 : 20 }]}
+                      activeOpacity={0.9}
                     >
-                      <TouchableOpacity style={styles.subjectCard} activeOpacity={0.9}>
-                        <View style={[styles.subjectIcon, { backgroundColor: subject.color_hex }]}>
-                          <Ionicons name={iconName} size={26} color="#FFFFFF" />
+                      <View style={[styles.subjectIcon, { backgroundColor: subject.color_hex }]}> 
+                        <Ionicons name={iconName} size={26} color="#FFFFFF" />
+                      </View>
+                      <Text style={styles.subjectName}>{subject.subject_name}</Text>
+                      <View style={styles.subjectProgress}>
+                        <View style={styles.subjectProgressBar}>
+                          <View
+                            style={[
+                              styles.subjectProgressFill,
+                              { width: `${widthPercent}%`, backgroundColor: subject.color_hex },
+                            ]}
+                          />
                         </View>
-                        <Text style={styles.subjectName}>{subject.subject_name}</Text>
-                        <View style={styles.subjectProgress}>
-                          <View style={styles.subjectProgressBar}>
-                            <View
-                              style={[
-                                styles.subjectProgressFill,
-                                { width: `${widthPercent}%`, backgroundColor: subject.color_hex },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.subjectProgressText}>
-                            {subject.completed_lessons} / {subject.total_lessons} aulas
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    </Link>
+                        <Text style={styles.subjectProgressText}>
+                          {subject.completed_lessons} / {subject.total_lessons} aulas
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             ) : (
               <Text style={styles.emptyText}>
-                Nenhuma materia cadastrada ainda. Cadastre materias e aulas no Supabase para destravar essa area.
+                Nenhuma materia cadastrada ainda. Cadastre materias e aulas no Firebase para destravar essa area.
               </Text>
             )}
           </View>
@@ -272,7 +290,7 @@ export default function DashboardScreen() {
           {/* Recent Activities */}
           <View style={styles.activitiesSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Atividades recentes</Text>
+              <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>Atividades recentes</Text>
             </View>
             {progressLoading && !progressRefreshing ? (
               <View style={styles.progressLoading}>
@@ -286,32 +304,33 @@ export default function DashboardScreen() {
                   const iconName = (meta?.icon as any) || 'book-outline';
                   const subjectId = meta?.slug ?? activity.subject_name.toLowerCase();
                   return (
-                    <Link
+                    <TouchableOpacity
                       key={activity.id}
-                      href={{
-                        pathname: '/(tabs)/materias/[id]',
-                        params: {
-                          id: subjectId,
-                          name: activity.subject_name,
-                          color,
-                        },
-                      }}
-                      asChild
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(tabs)/materias/[id]',
+                          params: {
+                            id: subjectId,
+                            name: activity.subject_name,
+                            color,
+                          },
+                        } as any)
+                      }
+                      style={styles.activityCard}
+                      activeOpacity={0.9}
                     >
-                      <TouchableOpacity style={styles.activityCard} activeOpacity={0.9}>
-                        <View style={[styles.activityIcon, { backgroundColor: color }]}>
-                          <Ionicons name={iconName} size={20} color="#FFFFFF" />
-                        </View>
-                        <View style={styles.activityContent}>
-                          <Text style={styles.activitySubject}>{activity.subject_name}</Text>
-                          <Text style={styles.activityText}>{activity.lesson_title}</Text>
-                          <Text style={styles.activityTime}>
-                            {statusLabel(activity.status)} - {formatRelativeTime(activity.updated_at)}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
-                      </TouchableOpacity>
-                    </Link>
+                      <View style={[styles.activityIcon, { backgroundColor: color }]}> 
+                        <Ionicons name={iconName} size={20} color="#FFFFFF" />
+                      </View>
+                      <View style={styles.activityContent}>
+                        <Text style={styles.activitySubject}>{activity.subject_name}</Text>
+                        <Text style={styles.activityText}>{activity.lesson_title}</Text>
+                        <Text style={styles.activityTime}>
+                          {statusLabel(activity.status)} - {formatRelativeTime(activity.updated_at)}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -324,12 +343,14 @@ export default function DashboardScreen() {
 
           {/* Quick Actions */}
           <View style={styles.actionsSection}>
-            <Text style={[styles.sectionTitle, styles.sectionStandaloneTitle]}>Acoes Rapidas</Text>
-            <View style={styles.actionsGrid}>
+            <Text style={[styles.sectionTitle, styles.sectionStandaloneTitle, compact && styles.sectionTitleCompact]}>
+              Acoes Rapidas
+            </Text>
+            <View style={[styles.actionsGrid, { gap: gridGap }]}>
               {quickActions.map((action) => (
                 <TouchableOpacity
                   key={action.id}
-                  style={styles.actionCard}
+                  style={[styles.actionCard, { width: cardWidth, padding: compact ? 16 : 20 }]}
                   onPress={() => router.push(action.path)}
                 >
                   <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
@@ -415,6 +436,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'white',
   },
+  sectionTitleCompact: {
+    fontSize: 18,
+  },
   sectionAction: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -443,6 +467,9 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
+  },
+  progressCardCompact: {
+    padding: 16,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -533,14 +560,11 @@ const styles = StyleSheet.create({
   subjectsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
     justifyContent: 'center',
   },
   subjectCard: {
-    width: (width - 72) / 2,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 20,
-    padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -631,14 +655,11 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
     justifyContent: 'center',
   },
   actionCard: {
-    width: (width - 72) / 2,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 20,
-    padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',

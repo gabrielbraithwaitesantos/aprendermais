@@ -1,499 +1,346 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Easing,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextStyle,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Animated, Easing, StyleSheet, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../store/themeStore';
 
-const { width, height } = Dimensions.get('window');
-const SPLASH_LOGO_SIZE = Math.min(width, height) * 0.56;
-const HERO_LOGO_SIZE = Math.min(width, height) * 0.36;
-const HERO_GLOW_SIZE = HERO_LOGO_SIZE * 1.4;
-const HERO_GLOW_LEFT = (width - HERO_GLOW_SIZE) / 2;
-const SPLASH_LOGO_X_NUDGE = 10; // pixels to the right to visually center the artwork
+const splashLogoSource = require('../assets/images/splash-logo.png');
 
-const onboardingData = [
-  {
-    title: 'Estudar nunca foi tao facil!',
-    description: 'Aprenda com interatividade, praticidade e foco no que realmente importa.',
-    color: '#4F46E5',
-  },
-  {
-    title: 'Aprenda mais de graca!',
-    description: 'Explicacoes claras e atividades interativas para turbinar seus estudos onde estiver!',
-    color: '#3B82F6',
-  },
-  {
-    title: 'Estude mais rapido e com eficiencia',
-    description: 'Testes rapidos e explicacoes diretas pra voce dominar os conteudos no seu ritmo.',
-    color: '#8B5CF6',
-  },
-];
-
-const isWeb = Platform.OS === 'web';
-const hexagonShadow: ViewStyle = isWeb
-  ? ({ boxShadow: '0 20px 45px rgba(15,23,42,0.2)' } as ViewStyle)
-  : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
-    };
-const loginButtonShadow: ViewStyle = isWeb
-  ? ({ boxShadow: '0 12px 30px rgba(17,24,39,0.2)' } as ViewStyle)
-  : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 4,
-      elevation: 3,
-    };
-const logoTextShadow: TextStyle = isWeb
-  ? ({ textShadow: '1px 1px 2px rgba(0,0,0,0.1)' } as TextStyle)
-  : {
-      textShadowColor: 'rgba(0, 0, 0, 0.1)',
-      textShadowOffset: { width: 1, height: 1 },
-      textShadowRadius: 2,
-    };
-const webPointerEventsNone = isWeb ? ({ pointerEvents: 'none' } as ViewStyle) : null;
-
-
-export default function OnboardingScreen() {
+export default function SplashGateScreen() {
   const router = useRouter();
-  const theme = useThemeColors();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [pageWidth, setPageWidth] = useState(width - 48); // fallback until measured
-  const [showSplash, setShowSplash] = useState(true);
-  const overlayOpacity = useRef(new Animated.Value(1)).current;
-  const logoScale = useRef(new Animated.Value(0.86)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslate = useRef(new Animated.Value(10)).current;
-  const scrollRef = useRef<ScrollView | null>(null);
-  const isDraggingRef = useRef(false);
+  const { width, height } = useWindowDimensions();
+  const compact = width < 360 || height < 680;
+  const logoSize = Math.max(150, Math.min(230, width * 0.62));
+  // The source PNG has left/up transparent padding imbalance; compensate to keep optical center.
+  const logoVisualOffsetX = Math.round(logoSize * 0.06);
+  const logoVisualOffsetY = Math.round(logoSize * 0.012);
+  const isNavigating = useRef(false);
+  const [isLogoLoaded, setIsLogoLoaded] = useState(false);
+  const logoReveal = useRef(new Animated.Value(0)).current;
 
-  // Autoplay: every 4s, loop slides and scroll
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (isDraggingRef.current || pageWidth <= 0) return; // pause while dragging or not measured
-      setCurrentIndex((i) => {
-        const next = (i + 1) % onboardingData.length;
-        scrollRef.current?.scrollTo({ x: next * pageWidth, animated: true });
-        return next;
-      });
-    }, 4000);
-    return () => clearInterval(id);
-  }, [pageWidth]);
+  const appear = useRef(new Animated.Value(0)).current;
+  const logoFloat = useRef(new Animated.Value(0)).current;
+  const hintPulse = useRef(new Animated.Value(0)).current;
+  const exitProgress = useRef(new Animated.Value(0)).current;
 
-  // Animated intro splash (scale-in logo, reveal title, then fade out)
+  const sceneOpacity = exitProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+  const sceneScale = exitProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.03],
+  });
+  const sceneTranslateY = exitProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -12],
+  });
+
+  const glowOpacity = appear.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0.2, 0.28],
+  });
+  const glowScale = appear.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1.08],
+  });
+
+  // Animate logo entrance only after image has fully loaded.
+  const logoOpacity = logoReveal.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const logoScale = logoReveal.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.9, 1],
+  });
+  const logoEntranceY = logoReveal.interpolate({
+    inputRange: [0, 1],
+    outputRange: [14, 0],
+  });
+
+  const titleOpacity = appear.interpolate({
+    inputRange: [0, 0.52, 1],
+    outputRange: [0, 0, 1],
+  });
+  const titleEntranceY = appear.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+
+  const hintBaseOpacity = appear.interpolate({
+    inputRange: [0, 0.74, 1],
+    outputRange: [0, 0, 1],
+  });
+  const hintPulseOpacity = hintPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1],
+  });
+
   useEffect(() => {
-    // sequence: logo in -> title in -> small hold -> fade overlay
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 350,
-          easing: Easing.out(Easing.cubic),
+    isNavigating.current = false;
+    setIsLogoLoaded(false);
+    logoReveal.setValue(0);
+    appear.setValue(0);
+    logoFloat.setValue(0);
+    hintPulse.setValue(0);
+    exitProgress.setValue(0);
+
+    let cancelled = false;
+    let rafId = 0;
+
+    const entrance = Animated.timing(appear, {
+      toValue: 1,
+      duration: 980,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      useNativeDriver: true,
+    });
+
+    const logoDrift = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoFloat, {
+          toValue: -4,
+          duration: 1700,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.spring(logoScale, {
-          toValue: 1,
-          friction: 6,
-          tension: 80,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.parallel([
-        Animated.timing(titleOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(titleTranslate, {
+        Animated.timing(logoFloat, {
           toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.quad),
+          duration: 1700,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ]),
-      Animated.delay(650),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 420,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start(() => setShowSplash(false));
-  }, [logoOpacity, logoScale, overlayOpacity, titleOpacity, titleTranslate]);
+      ])
+    );
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(hintPulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(hintPulse, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    rafId = requestAnimationFrame(() => {
+      if (cancelled) return;
+      logoDrift.start();
+      entrance.start(() => {
+        if (cancelled) return;
+        pulse.start();
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      pulse.stop();
+      logoDrift.stop();
+    };
+  }, [appear, exitProgress, hintPulse, logoFloat, logoReveal]);
+
+  useEffect(() => {
+    if (!isLogoLoaded) return;
+
+    const reveal = Animated.timing(logoReveal, {
+      toValue: 1,
+      duration: 360,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    reveal.start();
+
+    return () => {
+      reveal.stop();
+    };
+  }, [isLogoLoaded, logoReveal]);
+
+  const handleGoToAuth = () => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+
+    Animated.timing(exitProgress, {
+      toValue: 1,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) {
+        isNavigating.current = false;
+        return;
+      }
+      router.replace('/auth');
+    });
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {showSplash && (
-        <Animated.View style={[styles.splashOverlay, { opacity: overlayOpacity }]}>
-          <Animated.Image
-            source={require('../assets/images/splash-logo.png')}
-            resizeMode='contain'
-            style={{
-              width: SPLASH_LOGO_SIZE,
-              height: SPLASH_LOGO_SIZE,
-              opacity: logoOpacity,
-              transform: [{ scale: logoScale }, { translateX: SPLASH_LOGO_X_NUDGE }],
-            }}
-          />
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <Animated.View
+        style={[
+          styles.scene,
+          {
+            opacity: sceneOpacity,
+            transform: [{ scale: sceneScale }, { translateY: sceneTranslateY }],
+          },
+        ]}
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.glow,
+            {
+              width: logoSize * 1.55,
+              height: logoSize * 1.55,
+              opacity: glowOpacity,
+              transform: [{ translateY: -(logoSize * 0.52) }, { scale: glowScale }],
+            },
+          ]}
+        />
+
+        <Animated.View style={[styles.touchArea, compact && styles.touchAreaCompact]}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.logoTouch}
+            onPress={handleGoToAuth}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir autenticacao tocando na logo"
+          >
+            <Animated.View
+              style={[
+                styles.logoEntranceWrap,
+                {
+                  opacity: isLogoLoaded ? logoOpacity : 0,
+                  transform: [
+                    { translateX: logoVisualOffsetX },
+                    { translateY: Animated.add(logoEntranceY, logoVisualOffsetY) },
+                    { scale: logoScale },
+                  ],
+                },
+              ]}
+            >
+              <Animated.View style={[styles.logoFloatWrap, { transform: [{ translateY: logoFloat }] }]}>
+                <Animated.Image
+                  source={splashLogoSource}
+                  fadeDuration={0}
+                  onLoadEnd={() => setIsLogoLoaded(true)}
+                  onError={() => setIsLogoLoaded(true)}
+                  resizeMode="contain"
+                  style={[styles.logo, { width: logoSize, height: logoSize }]}
+                />
+              </Animated.View>
+            </Animated.View>
+          </TouchableOpacity>
+
           <Animated.Text
             style={[
-              styles.splashTitle,
-              { opacity: titleOpacity, transform: [{ translateY: titleTranslate }] },
+              styles.appTitle,
+              compact && styles.appTitleCompact,
+              { opacity: titleOpacity, transform: [{ translateY: titleEntranceY }] },
             ]}
           >
             APRENDER +
           </Animated.Text>
-        </Animated.View>
-      )}
-      <SafeAreaView style={styles.container}>
-        {/* Top Section - Logo */}
-        <View style={styles.topSection}>
-          {/* Decorative dots moved to background layer */}
-          <View
-            pointerEvents={!isWeb ? 'none' : undefined}
-            style={[styles.decorationLayer, webPointerEventsNone]}
+
+          <Animated.View
+            style={[
+              styles.hintRow,
+              compact && styles.hintRowCompact,
+              { opacity: hintBaseOpacity },
+            ]}
           >
-            <View style={[styles.decorationDot, { top: 100, left: 50 }]} />
-            <View style={[styles.decorationDot, { top: 150, right: 60 }]} />
-            <View style={[styles.decorationDot, { top: 200, left: 80 }]} />
-            <View style={[styles.decorationDot, { top: 120, right: 100 }]} />
-          </View>
-
-          <LinearGradient colors={['rgba(79,70,229,0.25)', 'transparent']} style={styles.heroGlow} />
-
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/images/hero-logo.png')}
-              resizeMode='contain'
-              style={{ width: HERO_LOGO_SIZE, height: HERO_LOGO_SIZE }}
-            />
-          </View>
-          <Text style={[styles.appTitle, { color: theme.text }]}>APRENDER +</Text>
-          <Text style={styles.appSubtitle}>Organize seus estudos com estilo e foco</Text>
-        </View>
-
-        {/* Bottom Section - Content */}
-        <LinearGradient colors={theme.gradient} style={styles.gradient}>
-          <View style={styles.handle} />
-
-          <View style={styles.bottomContent}>
-            <View style={styles.contentWrapper}>
-              <View
-                onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
-                style={{ width: '100%' }}
-              >
-                <ScrollView
-                  ref={scrollRef}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onMomentumScrollEnd={(e) => {
-                    const w = e.nativeEvent.layoutMeasurement.width || pageWidth;
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / w);
-                    setCurrentIndex(idx);
-                  }}
-                  onScrollBeginDrag={() => {
-                    isDraggingRef.current = true;
-                  }}
-                  onScrollEndDrag={() => {
-                    isDraggingRef.current = false;
-                  }}
-                  contentContainerStyle={{ alignItems: 'center' }}
-                  style={{ width: '100%' }}
-                >
-                  {onboardingData.map((slide, idx) => (
-                    <View key={idx} style={[styles.slide, { width: pageWidth }]}>
-                      <Text style={styles.slideTitle}>{slide.title}</Text>
-                      <Text style={styles.slideDescription}>{slide.description}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-
-              <View style={styles.pagination}>
-                {onboardingData.map((_, index) => (
-                  <Pressable
-                    key={index}
-                    onPress={() => {
-                      setCurrentIndex(index);
-                      scrollRef.current?.scrollTo({ x: index * pageWidth, animated: true });
-                    }}
-                    style={[
-                      styles.dot,
-                      { backgroundColor: index === currentIndex ? '#FF9800' : '#E5E7EB' },
-                    ]}
-                  />
-                ))}
-              </View>
-
-            </View>
-
-            {/* Action buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/auth/signup')}>
-                <Text style={styles.registerButtonText}>Registro</Text>
-                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/auth/login')}>
-                <Text style={styles.loginButtonText}>Login</Text>
-                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </LinearGradient>
-      </SafeAreaView>
-    </View>
+            <Animated.View style={{ opacity: hintPulseOpacity, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="hand-left-outline" size={16} color="#FFFFFF" />
+              <Text style={[styles.hintText, compact && styles.hintTextCompact]}>Toque na logo para continuar</Text>
+            </Animated.View>
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  splashOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    zIndex: 100,
     backgroundColor: '#59B3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  splashTitle: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  topSection: {
+  scene: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  glow: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '50%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  touchArea: {
+    flex: 1,
     alignItems: 'center',
-    position: 'relative',
-    paddingTop: 12,
-  },
-  logoContainer: {
-    marginBottom: 20,
-    zIndex: 1,
-  },
-  hexagon: {
-    width: 80,
-    height: 80,
-    backgroundColor: 'white',
     justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ rotate: '30deg' }],
-    borderWidth: 2,
-    borderColor: '#1976D2',
-    ...hexagonShadow,
+    paddingHorizontal: 24,
+    gap: 4,
   },
-  logoText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#1976D2',
-    transform: [{ rotate: '-30deg' }],
-    ...logoTextShadow,
+  touchAreaCompact: {
+    paddingHorizontal: 14,
+    gap: 3,
+  },
+  logoTouch: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  logoEntranceWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoFloatWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 230,
+    height: 230,
   },
   appTitle: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: 1,
-    zIndex: 1,
-  },
-  appSubtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  heroGlow: {
-    position: 'absolute',
-    width: HERO_GLOW_SIZE,
-    height: HERO_GLOW_SIZE,
-    borderRadius: HERO_LOGO_SIZE,
-    top: '32%',
-    left: HERO_GLOW_LEFT,
-    opacity: 0.6,
-  },
-  decorationLayer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 0,
-  },
-  decorationDot: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
-  },
-  gradient: {
-    flex: 1,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 56,
-  },
-  bottomContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 32,
-    gap: 24,
-  },
-  contentWrapper: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 0,
-    paddingBottom: 16,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  slideTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: 'white',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 32,
-  },
-  slideDescription: {
-    fontSize: 14,
-    color: 'white',
-    textAlign: 'center',
-    lineHeight: 20,
-    opacity: 0.9,
-    paddingHorizontal: 20,
-  },
-  pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-  },
-  slide: {
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 0,
-    paddingHorizontal: 12,
-    paddingBottom: 20,
-  },
-  chipRow: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginTop: 12,
-    paddingHorizontal: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.08)',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  dotActive: {
-    backgroundColor: '#FF9800',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 12,
-  },
-  registerButton: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  registerButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 0,
   },
-  loginButton: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+  appTitleCompact: {
+    fontSize: 21,
+    marginTop: 0,
+  },
+  hintRow: {
+    marginTop: 10,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    ...loginButtonShadow,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
-  loginButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1976D2',
+  hintRowCompact: {
+    marginTop: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  hintText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  hintTextCompact: {
+    fontSize: 12,
   },
 });

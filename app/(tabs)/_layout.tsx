@@ -156,6 +156,7 @@ nav[role="tablist"] [aria-haspopup="listbox"] {
       <Tabs
         screenOptions={{
           headerShown: false,
+          animation: 'fade',
           tabBarStyle: {
             position: 'absolute',
             bottom: 20,
@@ -166,8 +167,6 @@ nav[role="tablist"] [aria-haspopup="listbox"] {
             borderRadius: 35,
             borderTopWidth: 0,
             overflow: 'hidden',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
             ...tabBarShadow,
           },
           tabBarItemStyle: { paddingVertical: 6 },

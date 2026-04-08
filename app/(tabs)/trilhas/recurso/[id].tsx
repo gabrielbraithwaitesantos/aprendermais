@@ -13,10 +13,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import WebWebView from 'react-native-web-webview';
-import WebView from 'react-native-webview';
+import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import { useThemeColors, useThemeStore } from '../../../../store/themeStore';
 import { LEGAL_NOTICE } from '../../../../lib/legal';
-import { supabase } from '../../../../lib/supabase';
+import { getStudyTrackItemById } from '../../../../lib/firebaseData';
 import { OFFICIAL_RESOURCES } from '../../../../data/officialResources';
 
 type ResourceRow = {
@@ -64,33 +64,31 @@ export default function RecursoViewer() {
     const fetchResource = async () => {
       if (!id) return;
       setLoading(true);
-      const { data, error } = await supabase
-        .from('study_track_items')
-        .select('id, title, description, resource_url, kind, track:study_tracks(title)')
-        .eq('id', id)
-        .maybeSingle();
 
-      if (error) {
-        const fallback = OFFICIAL_RESOURCES.find((item) => item.id === id);
-        if (fallback) {
-          setResource({
-            id: fallback.id,
-            title: fallback.title,
-            description: fallback.description,
-            resource_url: fallback.url,
-            kind: 'resource',
-            track: { title: fallback.trackTitle },
-          });
+      try {
+        const data = await getStudyTrackItemById(id);
+        if (data) {
+          setResource(data as ResourceRow);
           setError(null);
+          setViewerError(null);
         } else {
-          setError(error.message);
-          setResource(null);
+          const fallback = OFFICIAL_RESOURCES.find((item) => item.id === id);
+          if (fallback) {
+            setResource({
+              id: fallback.id,
+              title: fallback.title,
+              description: fallback.description,
+              resource_url: fallback.url,
+              kind: 'resource',
+              track: { title: fallback.trackTitle },
+            });
+            setError(null);
+          } else {
+            setResource(null);
+            setError('Recurso nao encontrado.');
+          }
         }
-      } else if (data) {
-        setResource(data as ResourceRow | null);
-        setError(null);
-        setViewerError(null);
-      } else {
+      } catch (fetchError: any) {
         const fallback = OFFICIAL_RESOURCES.find((item) => item.id === id);
         if (fallback) {
           setResource({
@@ -104,8 +102,10 @@ export default function RecursoViewer() {
           setError(null);
         } else {
           setResource(null);
+          setError(fetchError?.message ?? 'Nao foi possivel carregar este recurso.');
         }
       }
+
       setLoading(false);
     };
 
@@ -253,7 +253,7 @@ export default function RecursoViewer() {
                   )
                 }
                 injectedJavaScript={injectedScript}
-                onMessage={(event) => {
+                onMessage={(event: WebViewMessageEvent) => {
                   if (event.nativeEvent.data === 'preview_unavailable') {
                     setViewerError(
                       'Esta fonte nao permite visualizacao embutida. Use o botao abaixo para abrir no navegador.'

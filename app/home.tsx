@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
-import { supabase } from '../lib/supabase';
+import { listUserProfiles } from '../lib/firebaseData';
 import { useAuthStore } from '../store/authStore';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { useT } from '../lib/i18n';
@@ -70,20 +70,11 @@ export default function HomeScreen() {
         setLoading(true);
       }
       setErrorMessage(null);
-      const { data, error } = await supabase.from('profiles').select('*').limit(10);
-      if (error) {
-        if (error?.message?.toLowerCase().includes('does not exist')) {
-          setErrorMessage('Tabela "profiles" nao encontrada. Veja o README para criar a tabela de teste.');
-        } else {
-          setErrorMessage(error.message);
-        }
-        setRows([]);
-        return;
-      }
+      const data = await listUserProfiles(10);
       setRows(data ?? []);
       setLastUpdated(new Date());
     } catch (error: any) {
-      setErrorMessage(error?.message ?? 'Falha ao carregar perfis.');
+      setErrorMessage(error?.message ?? 'Falha ao carregar perfis do Firebase.');
       setRows([]);
     } finally {
       setLoading(false);
@@ -141,12 +132,12 @@ export default function HomeScreen() {
       <View style={styles.heroCard}>
         <View style={styles.heroBadge}>
           <Ionicons name="sparkles-outline" size={16} color="#4338CA" />
-          <Text style={styles.heroBadgeText}>Smoke Test Supabase</Text>
+          <Text style={styles.heroBadgeText}>Smoke Test Firebase</Text>
         </View>
           <Text style={styles.heroTitle}>{t('hero_title') || 'Olá'}, {user?.email ?? 'visitante'} :)</Text>
           <Text style={styles.heroSubtitle}>
             {t('hero_subtitle') ?? (
-              <>Acompanhe os registros recentes da tabela <Text style={styles.bold}>profiles</Text> e valide sua integracao rapidamente.</>
+              <>Acompanhe os registros recentes da colecao <Text style={styles.bold}>users</Text> e valide sua integracao rapidamente.</>
             )}
           </Text>
 
@@ -187,7 +178,7 @@ export default function HomeScreen() {
           {loading ? (
             <View style={styles.loader}>
               <ActivityIndicator size="large" color="#6366F1" />
-              <Text style={styles.loaderText}>{t('home_loading') ?? 'Carregando dados da tabela "profiles"...'}</Text>
+              <Text style={styles.loaderText}>{t('home_loading') ?? 'Carregando dados da colecao "users"...'}</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
@@ -210,7 +201,7 @@ export default function HomeScreen() {
                   <Ionicons name="search-outline" size={24} color="#9CA3AF" />
                   <Text style={styles.emptyTitle}>Sem registros</Text>
                   <Text style={styles.emptyText}>
-                    Adicione dados na tabela &quot;profiles&quot; e atualize para ve-los aqui.
+                    Adicione dados na colecao &quot;users&quot; e atualize para ve-los aqui.
                   </Text>
                 </View>
               }

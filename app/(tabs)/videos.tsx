@@ -14,7 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../store/themeStore';
-import { useLessons } from '../../hooks/useLessons';
+import { useLessons, type LessonWithMeta } from '../../hooks/useLessons';
 
 const ICON_BY_SUBJECT: Record<string, keyof typeof Ionicons.glyphMap> = {
   matematica: 'calculator-outline',
@@ -22,6 +22,8 @@ const ICON_BY_SUBJECT: Record<string, keyof typeof Ionicons.glyphMap> = {
   humanas: 'book-outline',
   geral: 'play-circle-outline',
 };
+
+type SubjectLessonGroup = [string, LessonWithMeta[]];
 
 export default function VideosScreen() {
   const insets = useSafeAreaInsets();
@@ -43,10 +45,10 @@ export default function VideosScreen() {
   const [selectedSubject, setSelectedSubject] = useState('todos');
   const scrollRef = useRef<ScrollView | null>(null);
   const allLessons = useMemo(() => {
-    const list: typeof featuredLessons = [];
+    const list: LessonWithMeta[] = [];
     lessonsBySubject.forEach((arr) => list.push(...arr));
     return list;
-  }, [lessonsBySubject, featuredLessons]);
+  }, [lessonsBySubject]);
   const completionStats = useMemo(() => {
     const total = allLessons.length || stateCount(lessonsBySubject);
     const done = allLessons.filter((l) => l.progress?.status === 'done').length;
@@ -82,7 +84,7 @@ export default function VideosScreen() {
     return lessonsBySubject.get(selectedSubject) ?? [];
   }, [featuredLessons, lessonsBySubject, selectedSubject]);
 
-  const groupedLessons = useMemo(() => {
+  const groupedLessons = useMemo<SubjectLessonGroup[]>(() => {
     if (selectedSubject === 'todos') {
       return Array.from(lessonsBySubject.entries());
     }
@@ -151,7 +153,7 @@ export default function VideosScreen() {
                   Assista, marque como concluido e continue o progresso. Filtre por materia para focar.
                 </Text>
                 <View style={styles.heroActions}>
-                  <TouchableOpacity onPress={refresh} style={styles.refreshBtn} disabled={loading}>
+                  <TouchableOpacity onPress={() => refresh()} style={styles.refreshBtn} disabled={loading}>
                     <Ionicons name="refresh" size={16} color="#0B1224" />
                     <Text style={[styles.refreshText, { color: '#0B1224' }]}>Atualizar</Text>
                   </TouchableOpacity>
@@ -216,7 +218,7 @@ export default function VideosScreen() {
               <Text style={styles.sectionTitle}>
                 {selectedSubject === 'todos' ? 'Em destaque' : 'Para voce'}
               </Text>
-              <TouchableOpacity onPress={refresh} style={styles.sectionAction}>
+              <TouchableOpacity onPress={() => refresh()} style={styles.sectionAction}>
                 <Ionicons name="refresh" size={14} color="#FFFFFF" />
                 <Text style={styles.sectionActionText}>Atualizar</Text>
               </TouchableOpacity>
@@ -430,7 +432,7 @@ export default function VideosScreen() {
             <View style={styles.emptyStateBox}>
               <Text style={styles.emptyTitle}>Sem conteudo ainda</Text>
               <Text style={styles.emptySubtitle}>
-                Cadastre novas aulas no Supabase (tabela lessons) para que aparecam aqui.
+                Cadastre novas aulas no Firebase (colecao lessons) para que aparecam aqui.
               </Text>
             </View>
           ) : null}

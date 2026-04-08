@@ -1,6 +1,17 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updateProfile,
+  type User,
+  type UserCredential,
+} from 'firebase/auth';
+
+import { auth } from '../lib/firebase';
+import { syncAuthUserProfile } from '../lib/firebaseData';
 
 interface AuthState {
   user: User | null;
@@ -10,52 +21,128 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
-  resendConfirmationEmail: (email: string) => Promise<void>;
+  quickSignInTestUser: () => Promise<void>;
+  resendConfirmationEmail: (email: string, password: string) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+let authUnsubscribe: (() => void) | null = null;
+const TEST_LOGIN_EMAIL = 'teste@gmail.com';
+const TEST_LOGIN_PASSWORD = 'teste123';
+
+const syncProfileInBackground = (user: User) => {
+  syncAuthUserProfile(user).catch((syncError) => {
+    console.warn('syncAuthUserProfile', syncError);
+  });
+};
+
+const toReadableAuthError = (error: any) => {
+  const code = error?.code || '';
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Email invalido.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Email ou senha incorretos.';
+    case 'auth/email-already-in-use':
+      return 'Este email ja esta em uso.';
+    case 'auth/weak-password':
+      return 'Senha fraca. Use pelo menos 6 caracteres.';
+    case 'auth/too-many-requests':
+      return 'Muitas tentativas. Aguarde e tente novamente.';
+    case 'auth/email-not-verified':
+      return 'Email not confirmed';
+    case 'auth/operation-not-allowed':
+      return 'Metodo de login desativado no Firebase. Ative Email/Senha e Google Authentication no console.';
+    case 'auth/account-exists-with-different-credential':
+      return 'Ja existe uma conta com este email usando outro metodo de acesso.';
+    case 'auth/popup-closed-by-user':
+      return 'Login com Google cancelado.';
+    case 'auth/network-request-failed':
+      return 'Falha de rede. Verifique sua conexao e tente novamente.';
+    default:
+      return error?.message ?? 'Falha de autenticacao.';
+  }
+};
+
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
   error: null,
 
   initialize: async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      set({ user: session?.user ?? null, loading: false });
+      if (authUnsubscribe) {
+        const currentUser = auth.currentUser;
+        set({ user: currentUser, loading: false });
+        if (currentUser) {
+          syncProfileInBackground(currentUser);
+        }
+        return;
+      }
 
-      supabase.auth.onAuthStateChange((_event, session) => {
-        set({ user: session?.user ?? null });
-      });
+      let isSettled = false;
+      const settle = () => {
+        isSettled = true;
+      };
+
+      const timeoutId = setTimeout(() => {
+        if (isSettled) return;
+        settle();
+        set({ loading: false });
+      }, 8000);
+
+      authUnsubscribe = onAuthStateChanged(
+        auth,
+        (nextUser) => {
+          if (!isSettled) {
+            settle();
+            clearTimeout(timeoutId);
+          }
+
+          set({ user: nextUser, loading: false });
+
+          if (nextUser) {
+            syncProfileInBackground(nextUser);
+          }
+        },
+        (error) => {
+          if (!isSettled) {
+            settle();
+            clearTimeout(timeoutId);
+          }
+
+          set({ error: toReadableAuthError(error), loading: false });
+        }
+      );
     } catch (e: any) {
-      set({ error: e.message ?? 'Init error', loading: false });
+      set({ error: toReadableAuthError(e), loading: false });
     }
   },
 
   signIn: async (email, password) => {
-    console.log('🔐 AuthStore: Iniciando signIn...');
     set({ error: null, loading: true });
     try {
-      // Debug temporário
-      console.log('🔍 Tentando fazer login com:', { email, password });
-      console.log('🔍 Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
-      console.log('🔍 Supabase Key existe:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
-      
-      console.log('🔄 Chamando supabase.auth.signInWithPassword...');
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        console.error('❌ Erro do Supabase:', error);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+
+      if (!credential.user.emailVerified) {
+        try {
+          await sendEmailVerification(credential.user);
+        } catch (verificationError) {
+          console.warn('sendEmailVerification', verificationError);
+        }
+
+        await firebaseSignOut(auth);
+        const error = new Error('Email not confirmed');
+        (error as any).code = 'auth/email-not-verified';
         throw error;
       }
-      
-      console.log('✅ Login bem-sucedido, obtendo usuário...');
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Usuário obtido:', user?.email);
-      set({ user: user ?? null, loading: false });
+
+      syncProfileInBackground(credential.user);
+
+      set({ user: credential.user, loading: false });
     } catch (e: any) {
-      console.error('❌ Erro no login:', e);
-      set({ error: e.message ?? 'Login error', loading: false });
+      set({ error: toReadableAuthError(e), loading: false });
       throw e;
     }
   },
@@ -63,15 +150,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async (email, password, name) => {
     set({ error: null, loading: true });
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { name } }
-      });
-      if (error) throw error;
-      set({ user: data.user ?? null, loading: false });
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      if (name.trim().length > 0) {
+        await updateProfile(credential.user, { displayName: name.trim() });
+      }
+      syncProfileInBackground(credential.user);
+
+      try {
+        await sendEmailVerification(credential.user);
+      } catch (verificationError) {
+        console.warn('sendEmailVerification', verificationError);
+      }
+
+      await firebaseSignOut(auth);
+      set({ user: null, loading: false });
     } catch (e: any) {
-      set({ error: e.message ?? 'Sign up error', loading: false });
+      set({ error: toReadableAuthError(e), loading: false });
       throw e;
     }
   },
@@ -79,24 +173,67 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     set({ error: null, loading: true });
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await firebaseSignOut(auth);
       set({ user: null, loading: false });
     } catch (e: any) {
-      set({ error: e.message ?? 'Sign out error', loading: false });
+      set({ error: toReadableAuthError(e), loading: false });
       throw e;
     }
   },
 
-  resendConfirmationEmail: async (email) => {
+  quickSignInTestUser: async () => {
+    if (!__DEV__) {
+      throw new Error('Login rapido disponivel apenas em desenvolvimento.');
+    }
+
     set({ error: null, loading: true });
     try {
-      const { error } = await supabase.auth.resendConfirmation({ email });
-      if (error) throw error;
-      set({ user: null, loading: false }); // Assuming resending confirmation means signing out for now
+      let credential: UserCredential;
+
+      try {
+        credential = await signInWithEmailAndPassword(auth, TEST_LOGIN_EMAIL, TEST_LOGIN_PASSWORD);
+      } catch (signInError: any) {
+        const code = signInError?.code ?? '';
+        if (
+          code === 'auth/user-not-found' ||
+          code === 'auth/invalid-credential' ||
+          code === 'auth/invalid-email'
+        ) {
+          credential = await createUserWithEmailAndPassword(auth, TEST_LOGIN_EMAIL, TEST_LOGIN_PASSWORD);
+        } else if (code === 'auth/wrong-password') {
+          throw new Error(
+            'A conta de teste ja existe com outra senha. Ajuste para teste123 no Firebase Authentication.'
+          );
+        } else {
+          throw signInError;
+        }
+      }
+
+      syncProfileInBackground(credential.user);
+      set({ user: credential.user, loading: false });
     } catch (e: any) {
-      set({ error: e.message ?? 'Resend confirmation error', loading: false });
+      set({ error: toReadableAuthError(e), loading: false });
       throw e;
     }
-  }
+  },
+
+  resendConfirmationEmail: async (email, password) => {
+    set({ error: null, loading: true });
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+
+      if (credential.user.emailVerified) {
+        await firebaseSignOut(auth);
+        set({ user: null, loading: false });
+        return;
+      }
+
+      await sendEmailVerification(credential.user);
+      await firebaseSignOut(auth);
+      set({ user: null, loading: false });
+    } catch (e: any) {
+      set({ error: toReadableAuthError(e), loading: false });
+      throw e;
+    }
+  },
 }));

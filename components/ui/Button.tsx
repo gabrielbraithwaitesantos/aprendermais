@@ -1,5 +1,15 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle, Platform } from 'react-native';
+import {
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  StyleSheet,
+  ViewStyle,
+  Platform,
+  TextStyle,
+  StyleProp,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type Props = {
@@ -7,19 +17,47 @@ type Props = {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'primary' | 'ghost';
-  style?: ViewStyle;
+  variant?: 'primary' | 'ghost' | 'outline';
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 };
 
-export const Button: React.FC<Props> = ({ 
-  title, 
-  onPress, 
-  disabled, 
-  loading, 
-  variant = 'primary', 
-  style 
+export const Button: React.FC<Props> = ({
+  title,
+  onPress,
+  disabled,
+  loading,
+  variant = 'primary',
+  style,
+  contentStyle,
+  textStyle,
 }) => {
   const isDisabled = disabled || loading;
+  const useWebPrimaryFallback = Platform.OS === 'web';
+
+  if (variant === 'outline') {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        disabled={isDisabled}
+        style={[
+          styles.outlineButton,
+          isDisabled && styles.buttonDisabled,
+          style,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={[styles.outlineButtonText, textStyle]}>{title}</Text>
+        )}
+      </TouchableOpacity>
+    );
+  }
 
   if (variant === 'ghost') {
     return (
@@ -27,18 +65,14 @@ export const Button: React.FC<Props> = ({
         activeOpacity={0.8}
         onPress={onPress}
         disabled={isDisabled}
-        style={[
-          styles.ghostButton,
-          isDisabled && styles.buttonDisabled,
-          style
-        ]}
+        style={[styles.ghostButton, isDisabled && styles.buttonDisabled, style]}
         accessibilityRole="button"
         accessibilityLabel={title}
       >
         {loading ? (
-          <ActivityIndicator color="#4F46E5" />
+          <ActivityIndicator color="#334155" />
         ) : (
-          <Text style={styles.ghostButtonText}>{title}</Text>
+          <Text style={[styles.ghostButtonText, textStyle]}>{title}</Text>
         )}
       </TouchableOpacity>
     );
@@ -49,26 +83,32 @@ export const Button: React.FC<Props> = ({
       activeOpacity={0.8}
       onPress={onPress}
       disabled={isDisabled}
-      style={[
-        styles.primaryButton,
-        isDisabled && styles.buttonDisabled,
-        style
-      ]}
+      style={[styles.primaryButton, isDisabled && styles.buttonDisabled, style]}
       accessibilityRole="button"
       accessibilityLabel={title}
     >
-      <LinearGradient
-        colors={['#4F46E5', '#8B5CF6']}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.primaryButtonText}>{title}</Text>
-        )}
-      </LinearGradient>
+      {useWebPrimaryFallback ? (
+        <View style={[styles.webPrimaryContent, contentStyle]}>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={[styles.primaryButtonText, textStyle]}>{title}</Text>
+          )}
+        </View>
+      ) : (
+        <LinearGradient
+          colors={['#4F46E5', '#8B5CF6']}
+          style={[styles.gradient, contentStyle]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={[styles.primaryButtonText, textStyle]}>{title}</Text>
+          )}
+        </LinearGradient>
+      )}
     </TouchableOpacity>
   );
 };
@@ -91,36 +131,61 @@ const styles = StyleSheet.create({
     ...buttonShadow,
   },
   gradient: {
-    paddingVertical: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
+  webPrimaryContent: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 15,
     paddingHorizontal: 32,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56,
   },
   primaryButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: 'white',
     textAlign: 'center',
   },
   ghostButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
+    paddingVertical: 15,
+    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56,
   },
   ghostButtonText: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  outlineButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
+  outlineButtonText: {
+    fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
 });

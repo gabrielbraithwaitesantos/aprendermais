@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
-import { supabase } from '../lib/supabase';
+import {
+  getDailyStudyStats,
+  getLessonProgressForUser,
+  getLessons,
+  getSubjects,
+  subscribeToLessonProgress,
+} from '../lib/firebaseData';
 import { useAuthStore } from '../store/authStore';
 import type {
   Lesson,
@@ -53,12 +59,13 @@ type LessonProgressRow = LessonProgress & {
 
 export function useProgress() {
   const user = useAuthStore((state) => state.user);
+  const userId = user?.uid;
   const [state, setState] = useState<ProgressState>(initialState);
-  const syncTimer = useRef<NodeJS.Timeout | null>(null);
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!user?.id) {
+      if (!userId) {
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -78,34 +85,21 @@ export function useProgress() {
       }));
 
       try {
-        const [subjectsRes, lessonsRes, progressRes, statsRes] = await Promise.all([
-          supabase.from('subjects').select('id, name, color_hex, slug, icon'),
-          supabase
-            .from('lessons')
-            .select('id, subject_id, title, module, duration_minutes, difficulty'),
-          supabase
-            .from('lesson_progress')
-            .select(
-              'id, lesson_id, user_id, percent_complete, status, updated_at, completed_at, lesson:lessons(id, subject_id, title)'
-            )
-            .eq('user_id', user.id),
-          supabase
-            .from('daily_study_stats')
-            .select('day, minutes, completed_lessons, streak')
-            .eq('user_id', user.id)
-            .order('day', { ascending: false })
-            .limit(7),
+        const [subjectsData, lessonsData, progressData, statsData] = await Promise.all([
+          getSubjects(),
+          getLessons(),
+          getLessonProgressForUser(userId),
+          getDailyStudyStats(userId),
         ]);
 
-        if (subjectsRes.error) throw subjectsRes.error;
-        if (lessonsRes.error) throw lessonsRes.error;
-        if (progressRes.error) throw progressRes.error;
-        if (statsRes.error) throw statsRes.error;
-
-        const subjects = (subjectsRes.data ?? []) as Subject[];
-        const lessons = (lessonsRes.data ?? []) as Lesson[];
-        const progressRows = (progressRes.data as LessonProgressRow[]) ?? [];
-        const stats = (statsRes.data as DailyStudyStat[]) ?? [];
+        const subjects = subjectsData as Subject[];
+        const lessons = lessonsData as Lesson[];
+        const lessonMap = new Map<string, Lesson>(lessons.map((lesson) => [lesson.id, lesson]));
+        const progressRows = (progressData ?? []).map((item) => ({
+          ...item,
+          lesson: lessonMap.get(item.lesson_id) ?? null,
+        })) as LessonProgressRow[];
+        const stats = (statsData as DailyStudyStat[]) ?? [];
 
         const subjectsMap = new Map<string, Subject>(
           subjects.map((subject) => [subject.id, subject as Subject])
@@ -227,7 +221,7 @@ export function useProgress() {
         }));
       }
     },
-    [user?.id]
+    [userId]
   );
 
   useEffect(() => {
@@ -235,19 +229,10 @@ export function useProgress() {
   }, [fetchData]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel(`lesson-progress-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'lesson_progress', filter: `user_id=eq.${user.id}` },
-        () => fetchData({ silent: true })
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, fetchData]);
+    if (!userId) return;
+    const unsubscribe = subscribeToLessonProgress(userId, () => fetchData({ silent: true }));
+    return () => unsubscribe();
+  }, [userId, fetchData]);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('lesson-progress-sync', () => {

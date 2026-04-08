@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
   Alert,
 } from 'react-native';
@@ -26,7 +27,9 @@ type CalendarEvent = {
 const STORAGE_KEY = 'calendar.events.v1';
 
 export default function CalendarioScreen() {
+  const { width } = useWindowDimensions();
   const theme = useThemeColors();
+  const compact = width < 360;
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'agenda' | 'week' | 'month'>('agenda');
@@ -135,7 +138,12 @@ export default function CalendarioScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 20, alignItems: 'center' }}
+        contentContainerStyle={{
+          padding: compact ? 14 : 20,
+          paddingBottom: 40,
+          gap: compact ? 16 : 20,
+          alignItems: 'center',
+        }}
       >
         <View style={styles.maxWidth}>
           <View style={styles.header}>
@@ -143,9 +151,9 @@ export default function CalendarioScreen() {
               <Text style={[styles.title, { color: theme.text }]}>Calendario inteligente</Text>
               <Text style={[styles.subtitle, { color: theme.textMuted }]}>Seu cronograma de estudos sempre organizado.</Text>
             </View>
-            <TouchableOpacity style={styles.addButton} onPress={() => openModal()}>
+            <TouchableOpacity style={[styles.addButton, compact && styles.addButtonCompact]} onPress={() => openModal()}>
               <Ionicons name='add' size={18} color='#FFFFFF' />
-              <Text style={styles.addButtonText}>Novo evento</Text>
+              <Text style={[styles.addButtonText, compact && styles.addButtonTextCompact]}>Novo evento</Text>
             </TouchableOpacity>
           </View>
 
@@ -423,7 +431,7 @@ const styles = StyleSheet.create({
     gap: 12,
     flexWrap: 'wrap',
   },
-  headerText: { flex: 1, minWidth: 220, gap: 4 },
+  headerText: { flex: 1, minWidth: 0, gap: 4 },
   title: { fontSize: 24, fontWeight: '800' },
   subtitle: { fontSize: 14, lineHeight: 18 },
   addButton: {
@@ -436,7 +444,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#4F46E5',
     alignSelf: 'flex-start',
   },
+  addButtonCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 4,
+  },
   addButtonText: { color: '#FFFFFF', fontWeight: '700' },
+  addButtonTextCompact: { fontSize: 12 },
   segment: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.08)',

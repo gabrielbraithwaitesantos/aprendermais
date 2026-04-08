@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
-import { supabase } from '../lib/supabase';
+import {
+  getLessonProgressForUser,
+  getLessons,
+  getSubjects,
+  setLessonProgress,
+} from '../lib/firebaseData';
 import { useAuthStore } from '../store/authStore';
 import type { Lesson, LessonProgress, Subject } from '../types/database';
 
@@ -26,6 +31,7 @@ const initialState: LessonState = {
 
 export function useLessons() {
   const user = useAuthStore((state) => state.user);
+  const userId = user?.uid;
   const [state, setState] = useState<LessonState>(initialState);
   const [togglingLessonId, setTogglingLessonId] = useState<string | null>(null);
   const fetchSeq = useRef(0);
@@ -55,26 +61,17 @@ export function useLessons() {
         error: null,
       }));
 
-      const { data, error } = await supabase
-        .from('lessons')
-        .select('*, subject:subjects(id, name, slug, color_hex)')
-        .order('is_featured', { ascending: false })
-        .order('order_index', { ascending: true });
+      const [lessonsData, subjects] = await Promise.all([getLessons(), getSubjects()]);
+      const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
+      const rows = lessonsData.map((lesson) => ({
+        ...lesson,
+        subject: subjectMap.get(lesson.subject_id),
+      })) as LessonRow[];
 
-      if (error) throw error;
-
-      const rows = (data ?? []) as LessonRow[];
       let progressMap = new Map<string, LessonProgress>();
 
-      if (user?.id && rows.length > 0) {
-        const lessonIds = rows.map((row) => row.id);
-        const { data: progressData, error: progressError } = await supabase
-          .from('lesson_progress')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('lesson_id', lessonIds);
-
-        if (progressError) throw progressError;
+      if (userId && rows.length > 0) {
+        const progressData = await getLessonProgressForUser(userId);
         (progressData ?? []).forEach((item) => {
           if (isDeletionGuarded(item.lesson_id)) return;
           progressMap.set(item.lesson_id, item);
@@ -98,7 +95,7 @@ export function useLessons() {
         }));
       }
     }
-  }, [user?.id]);
+  }, [userId]);
 
   useEffect(() => {
     fetchLessons();
@@ -142,7 +139,7 @@ export function useLessons() {
 
   const toggleLessonCompletion = useCallback(
     async (lessonId: string) => {
-      if (!user?.id) return;
+      if (!userId) return;
       if (togglingLessonId === lessonId) return;
       const lesson = state.lessons.find((item) => item.id === lessonId);
       const current = lesson?.progress;
@@ -150,22 +147,11 @@ export function useLessons() {
       try {
         setTogglingLessonId(lessonId);
         if (current?.status === 'done') {
-          const { data, error: revertError } = await supabase
-            .from('lesson_progress')
-            .upsert(
-              {
-                id: current.id,
-                lesson_id: lessonId,
-                user_id: user.id,
-                percent_complete: 0,
-                status: 'todo',
-                completed_at: null,
-              },
-              { onConflict: 'lesson_id,user_id' }
-            )
-            .select()
-            .single();
-          if (revertError) throw revertError;
+          await setLessonProgress(userId, lessonId, {
+            percent_complete: 0,
+            status: 'todo',
+            completed_at: null,
+          });
 
           deletionGuards.current.set(lessonId, Date.now());
           setState((prev) => ({
@@ -177,21 +163,11 @@ export function useLessons() {
           emitProgressSync();
           setTimeout(() => fetchLessons({ silent: true }), 300);
         } else {
-          const { data, error } = await supabase
-            .from('lesson_progress')
-            .upsert(
-              {
-                lesson_id: lessonId,
-                user_id: user.id,
-                percent_complete: 100,
-                status: 'done',
-                completed_at: new Date().toISOString(),
-              },
-              { onConflict: 'lesson_id,user_id' }
-            )
-            .select()
-            .single();
-          if (error) throw error;
+          const data = await setLessonProgress(userId, lessonId, {
+            percent_complete: 100,
+            status: 'done',
+            completed_at: new Date().toISOString(),
+          });
 
           deletionGuards.current.delete(lessonId);
           setState((prev) => ({
@@ -212,7 +188,7 @@ export function useLessons() {
         setTogglingLessonId((prev) => (prev === lessonId ? null : prev));
       }
     },
-    [user?.id, state.lessons, togglingLessonId, fetchLessons]
+    [userId, state.lessons, togglingLessonId, fetchLessons]
   );
 
   return {

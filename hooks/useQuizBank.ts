@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { getQuizQuestions } from '../lib/firebaseData';
 import type { QuizQuestion } from '../types/database';
 
 export type QuizFilters = {
@@ -25,12 +25,8 @@ export function useQuizBank(filters?: QuizFilters) {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        let query = supabase.from('quiz_questions').select('*');
-        if (filters?.exam) query = query.eq('exam', filters.exam);
-        if (filters?.subject) query = query.eq('subject', filters.subject);
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        setState({ loading: false, error: null, questions: data ?? [] });
+        const questions = await getQuizQuestions(filters);
+        setState({ loading: false, error: null, questions: questions ?? [] });
       } catch (error: any) {
         setState({
           loading: false,

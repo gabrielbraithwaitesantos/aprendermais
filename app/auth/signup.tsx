@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   View,
   Text,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ScrollView,
   TouchableOpacity,
   Image,
+  useWindowDimensions,
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +37,7 @@ const BENEFIT_TAGS = [
 ];
 
 const isWeb = Platform.OS === 'web';
+const useNativeScrollDriver = !isWeb;
 const heroCircleShadow: ViewStyle = isWeb
   ? ({ boxShadow: '0 28px 55px rgba(10,74,163,0.25)' } as ViewStyle)
   : {
@@ -45,18 +48,103 @@ const heroCircleShadow: ViewStyle = isWeb
       elevation: 12,
     };
 
+const heroPanelShadow: ViewStyle = isWeb
+  ? ({ boxShadow: '0 24px 52px rgba(10, 39, 99, 0.26)' } as ViewStyle)
+  : {
+      shadowColor: '#0A2763',
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 11,
+    };
+
 export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const theme = useThemeColors();
   const { signUp } = useAuthStore.getState();
   const t = useT();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const entry = useRef(new Animated.Value(0)).current;
+  const compact = width < 360;
+  const medium = width < 390;
+  const atmosphereSlowY = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, -76],
+    extrapolate: 'clamp',
+  });
+  const atmosphereFastY = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, -130],
+    extrapolate: 'clamp',
+  });
+  const atmosphereX = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, 24],
+    extrapolate: 'clamp',
+  });
+  const cardParallaxY = scrollY.interpolate({
+    inputRange: [0, 280],
+    outputRange: [0, -10],
+    extrapolate: 'clamp',
+  });
+  const heroParallaxY = scrollY.interpolate({
+    inputRange: [0, 280],
+    outputRange: [0, -18],
+    extrapolate: 'clamp',
+  });
+  const heroParallaxScale = scrollY.interpolate({
+    inputRange: [0, 280],
+    outputRange: [1, 1.03],
+    extrapolate: 'clamp',
+  });
+  const entryHeaderOpacity = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const entryHeaderY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+  const entryCardOpacity = entry.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0, 0, 1],
+  });
+  const entryCardY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [30, 0],
+  });
+  const entryHeroOpacity = entry.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [0, 0, 1],
+  });
+  const entryHeroY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [26, 0],
+  });
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
+
+  useEffect(() => {
+    entry.setValue(0);
+    const intro = Animated.timing(entry, {
+      toValue: 1,
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    intro.start();
+
+    return () => {
+      intro.stop();
+    };
+  }, [entry]);
 
   const handleBack = () => {
     const routerAny = router as unknown as { canGoBack?: () => boolean };
@@ -108,30 +196,104 @@ export default function SignUpScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={theme.gradient} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <Animated.View pointerEvents="none" style={[styles.atmosphere, { transform: [{ translateY: atmosphereSlowY }] }]}>
+          <Animated.View
+            style={[
+              styles.orb,
+              styles.orbOne,
+              {
+                transform: [{ translateX: atmosphereX }, { translateY: atmosphereFastY }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(255,255,255,0.48)', 'rgba(255,255,255,0.02)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.orb,
+              styles.orbTwo,
+              {
+                transform: [
+                  { translateX: atmosphereX.interpolate({ inputRange: [0, 24], outputRange: [0, -24] }) },
+                  { translateY: atmosphereSlowY },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(167,243,255,0.4)', 'rgba(167,243,255,0.02)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+          <Animated.View style={[styles.orb, styles.orbThree, { transform: [{ translateY: atmosphereFastY }] }]}>
+            <LinearGradient
+              colors={['rgba(125,211,252,0.34)', 'rgba(125,211,252,0.02)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + (compact ? 8 : 12),
+              paddingHorizontal: compact ? 14 : 20,
+              marginBottom: compact ? 8 : 12,
+              opacity: entryHeaderOpacity,
+              transform: [{ translateY: entryHeaderY }],
+            },
+          ]}
+        >
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('auth_signup_title') ?? 'Criar conta'}</Text>
+          <Text style={[styles.headerTitle, compact && styles.headerTitleCompact]}>
+            {t('auth_signup_title') ?? 'Criar conta'}
+          </Text>
           <View style={styles.headerSpacer} />
-        </View>
+        </Animated.View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-          <ScrollView
+          <Animated.ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: useNativeScrollDriver }
+            )}
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingHorizontal: compact ? 16 : 24,
+                paddingBottom: insets.bottom + 80,
+                gap: compact ? 10 : 12,
+              },
+            ]}
           >
             <View style={styles.langRow}>
               <LanguageSwitcher />
             </View>
-            <View style={styles.formWrapper}>
-              <View style={styles.cardOuter}>
+            <View style={[styles.formWrapper, { gap: compact ? 20 : 28 }]}>
+              <Animated.View
+                style={{
+                  width: '100%',
+                  opacity: entryCardOpacity,
+                  transform: [{ translateY: Animated.add(cardParallaxY, entryCardY) }],
+                }}
+              >
+                <View style={styles.cardOuter}>
                 <LinearGradient colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.72)']} style={styles.cardGradient}>
-                  <View style={styles.cardContent}>
+                  <View style={[styles.cardContent, compact && styles.cardContentCompact]}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardLabel}>{t('auth_signup_title') ?? 'Criar conta'}</Text>
-                      <Text style={styles.cardTitle}>{t('auth_signup_title') ?? 'Criar conta'}</Text>
+                      <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>
+                        {t('auth_signup_title') ?? 'Criar conta'}
+                      </Text>
                       <Text style={styles.cardDescription}>
                         {t('auth_signup_subtitle') ?? 'Informe os dados para criar sua conta.'}
                       </Text>
@@ -190,51 +352,70 @@ export default function SignUpScreen() {
                     </Text>
 
                     <View style={styles.footer}>
-                      <Text style={styles.footerText}>{t('auth_login_title') ?? 'Ja tem conta?'}</Text>
+                      <Text style={styles.footerText}>Ja possui conta?</Text>
                       <Link href="/auth/login" style={styles.footerLink}>
-                        {t('auth_login_title') ?? 'Entrar'}
+                        Entrar
                       </Link>
                     </View>
                   </View>
                 </LinearGradient>
-              </View>
+                </View>
+              </Animated.View>
 
-              <View style={styles.heroSection}>
-                <View style={styles.heroLogoStack}>
-                  <View style={styles.heroCircle}>
-                    <Image
-                      source={require('../../assets/images/hero-logo.png')}
-                      resizeMode='contain'
-                      style={styles.heroLogo}
-                    />
+              <Animated.View
+                style={{
+                  width: '100%',
+                  opacity: entryHeroOpacity,
+                  transform: [{ translateY: Animated.add(heroParallaxY, entryHeroY) }, { scale: heroParallaxScale }],
+                }}
+              >
+                <View
+                  style={[
+                    styles.heroSection,
+                    {
+                      padding: compact ? 16 : 24,
+                      marginTop: compact ? 14 : 24,
+                    },
+                  ]}
+                >
+                  <View style={styles.heroLogoStack}>
+                    <View style={[styles.heroCircle, compact && styles.heroCircleCompact]}>
+                      <Image
+                        source={require('../../assets/images/hero-logo.png')}
+                        resizeMode='contain'
+                        style={[styles.heroLogo, compact && styles.heroLogoCompact]}
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.heroEyebrow}>Comunidade Aprender+</Text>
+                  <Text style={[styles.heroHeading, compact && styles.heroHeadingCompact]}>
+                    Comece sua jornada com conteudos premium e mentorias ao vivo
+                  </Text>
+                  <Text style={[styles.heroSubtitle, compact && styles.heroSubtitleCompact]}>
+                    Mais de 20 mil estudantes ja melhoraram a rotina de estudos com os planos personalizados do Aprender+.
+                  </Text>
+
+                  <View style={[styles.statsRow, medium && styles.statsRowWrap]}>
+                    {HERO_STATS.map((stat) => (
+                      <View key={stat.label} style={[styles.statCard, medium && styles.statCardWrap]}>
+                        <Text style={styles.statValue}>{stat.value}</Text>
+                        <Text style={styles.statLabel}>{stat.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.badgesRow}>
+                    {BENEFIT_TAGS.map((item) => (
+                      <View key={item.label} style={styles.badgePill}>
+                        <Ionicons name={item.icon} size={16} color="#FFFFFF" />
+                        <Text style={styles.badgePillText}>{item.label}</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
-                <Text style={styles.heroEyebrow}>Comunidade MeuApp</Text>
-                <Text style={styles.heroHeading}>Comece sua jornada com conteudos premium e mentorias ao vivo</Text>
-                <Text style={styles.heroSubtitle}>
-                  Mais de 20 mil estudantes ja melhoraram a rotina de estudos com os planos personalizados do MeuApp.
-                </Text>
-
-                <View style={styles.statsRow}>
-                  {HERO_STATS.map((stat) => (
-                    <View key={stat.label} style={styles.statCard}>
-                      <Text style={styles.statValue}>{stat.value}</Text>
-                      <Text style={styles.statLabel}>{stat.label}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={styles.badgesRow}>
-                  {BENEFIT_TAGS.map((item) => (
-                    <View key={item.label} style={styles.badgePill}>
-                      <Ionicons name={item.icon} size={16} color="#FFFFFF" />
-                      <Text style={styles.badgePillText}>{item.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
+              </Animated.View>
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
@@ -273,14 +454,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  headerTitleCompact: {
+    fontSize: 16,
+  },
   headerSpacer: {
     width: 42,
     height: 42,
   },
   content: {
-    paddingHorizontal: 24,
     flexGrow: 1,
-    gap: 12,
+  },
+  atmosphere: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  orb: {
+    position: 'absolute',
+    borderRadius: 999,
+    overflow: 'hidden',
+    opacity: 0.78,
+  },
+  orbOne: {
+    width: 270,
+    height: 270,
+    top: -58,
+    left: -70,
+  },
+  orbTwo: {
+    width: 300,
+    height: 300,
+    right: -92,
+    bottom: 72,
+  },
+  orbThree: {
+    width: 200,
+    height: 200,
+    left: 22,
+    top: 260,
+    opacity: 0.64,
   },
   langRow: {
     alignItems: 'flex-end',
@@ -294,8 +508,11 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 28,
     padding: 24,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(9, 36, 87, 0.24)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
     marginTop: 24,
+    ...heroPanelShadow,
   },
   heroLogoStack: {
     alignItems: 'center',
@@ -312,9 +529,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...heroCircleShadow,
   },
+  heroCircleCompact: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+  },
   heroLogo: {
     width: 70,
     height: 70,
+  },
+  heroLogoCompact: {
+    width: 60,
+    height: 60,
   },
   heroEyebrow: {
     color: 'rgba(255,255,255,0.75)',
@@ -332,6 +558,10 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     textAlign: 'center',
   },
+  heroHeadingCompact: {
+    fontSize: 22,
+    lineHeight: 28,
+  },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 15,
@@ -339,11 +569,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  heroSubtitleCompact: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 16,
+  },
+  statsRowWrap: {
+    flexWrap: 'wrap',
   },
   statCard: {
     flex: 1,
@@ -353,6 +591,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.45)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
+  },
+  statCardWrap: {
+    flexBasis: '47%',
+    minWidth: 132,
   },
   statValue: {
     fontSize: 18,
@@ -401,6 +643,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.96)',
     gap: 18,
   },
+  cardContentCompact: {
+    borderRadius: 24,
+    padding: 16,
+    gap: 14,
+  },
   cardHeader: {
     gap: 6,
   },
@@ -415,6 +662,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#111827',
+  },
+  cardTitleCompact: {
+    fontSize: 20,
   },
   cardDescription: {
     fontSize: 14,

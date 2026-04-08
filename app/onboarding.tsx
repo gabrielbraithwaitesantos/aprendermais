@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../store/themeStore';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,7 +27,6 @@ const levels = [
 
 export default function OnboardingFlow() {
   const insets = useSafeAreaInsets();
-  const theme = useThemeColors();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({

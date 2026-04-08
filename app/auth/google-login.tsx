@@ -1,6 +1,7 @@
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, View, Platform, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '../../components/ui/Button';
@@ -19,8 +20,16 @@ const cardShadow: ViewStyle = isWeb
     };
 
 export default function GoogleLoginScreen() {
+  const router = useRouter();
   const theme = useThemeColors();
   const { signInWithGoogle, loading, error, isReady } = useGoogleSignIn();
+
+  const handleGoogleSignIn = async () => {
+    const success = await signInWithGoogle();
+    if (success) {
+      router.replace('/(tabs)');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,17 +40,18 @@ export default function GoogleLoginScreen() {
             <Text style={styles.title}>Entrar com Google</Text>
           </View>
           <Text style={styles.subtitle}>
-            Use sua conta Google para acessar o MeuApp rapidamente e sincronizar seus dados no Supabase.
+            Use sua conta Google para acessar o MeuApp rapidamente e sincronizar seus dados no Firebase.
           </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Button
             title={loading ? 'Conectando...' : 'Entrar com Google'}
-            onPress={signInWithGoogle}
+            onPress={handleGoogleSignIn}
             loading={loading}
             disabled={!isReady}
           />
+          <Button title="Voltar ao login" onPress={() => router.replace('/auth/login')} variant="ghost" />
           <Text style={styles.helperText}>Redirecionaremos para meuapp://auth/callback após a confirmação.</Text>
         </View>
       </LinearGradient>

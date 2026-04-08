@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { getStudyTracksWithItems } from '../lib/firebaseData';
 import type { StudyTrack, StudyTrackItem } from '../types/database';
 import { OFFICIAL_RESOURCES } from '../data/officialResources';
 
 export type StudyTrackWithItems = StudyTrack & {
   items: StudyTrackItem[];
+  created_at?: string;
 };
 
 type TrackState = {
@@ -59,15 +60,7 @@ export function useStudyTracks() {
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        const { data, error } = await supabase
-          .from('study_tracks')
-          .select(
-            '*, items:study_track_items(*, lesson:lessons(*, subject:subjects(name, slug, color_hex)))'
-          )
-          .order('title', { ascending: true })
-          .order('order_index', { referencedTable: 'study_track_items', ascending: true });
-
-        if (error) throw error;
+        const data = await getStudyTracksWithItems();
 
         setState({
           loading: false,

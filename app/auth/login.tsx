@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -19,12 +21,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { useThemeColors } from '../../store/themeStore';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { useT } from '../../lib/i18n';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TEST_ACCOUNT_EMAIL = 'teste@gmail.com';
+const TEST_ACCOUNT_PASSWORD = 'teste123';
 const isWeb = Platform.OS === 'web';
+const useNativeScrollDriver = !isWeb;
 const heroSurfaceShadow: ViewStyle = isWeb
   ? ({ boxShadow: '0 30px 60px rgba(15,23,42,0.25)' } as ViewStyle)
   : {
@@ -46,10 +52,78 @@ const formCardShadow: ViewStyle = isWeb
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const router = useRouter();
   const theme = useThemeColors();
   const t = useT();
-  const { signIn, resendConfirmationEmail } = useAuthStore.getState();
+  const compact = width < 360;
+  const isLandscape = width > height;
+  const stackedActions = isLandscape || height < 640;
+  const denseButtons = compact || width < 430;
+  const horizontalPadding = compact ? 16 : 24;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const entry = useRef(new Animated.Value(0)).current;
+  const atmosphereSlowY = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, -82],
+    extrapolate: 'clamp',
+  });
+  const atmosphereFastY = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, -132],
+    extrapolate: 'clamp',
+  });
+  const atmosphereX = scrollY.interpolate({
+    inputRange: [0, 420],
+    outputRange: [0, 22],
+    extrapolate: 'clamp',
+  });
+  const heroParallaxY = scrollY.interpolate({
+    inputRange: [0, 260],
+    outputRange: [0, -16],
+    extrapolate: 'clamp',
+  });
+  const heroParallaxScale = scrollY.interpolate({
+    inputRange: [0, 260],
+    outputRange: [1, 1.035],
+    extrapolate: 'clamp',
+  });
+  const cardParallaxY = scrollY.interpolate({
+    inputRange: [0, 260],
+    outputRange: [0, -10],
+    extrapolate: 'clamp',
+  });
+  const entryHeaderOpacity = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const entryHeaderY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+  const entryHeroOpacity = entry.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0, 0, 1],
+  });
+  const entryHeroY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [26, 0],
+  });
+  const entryCardOpacity = entry.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 0, 1],
+  });
+  const entryCardY = entry.interpolate({
+    inputRange: [0, 1],
+    outputRange: [34, 0],
+  });
+  const { signIn, resendConfirmationEmail, quickSignInTestUser } = useAuthStore.getState();
+  const {
+    signInWithGoogle,
+    loading: googleLoading,
+    error: googleError,
+    isReady: isGoogleReady,
+  } = useGoogleSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +134,22 @@ export default function LoginScreen() {
     type: 'info' | 'success' | 'error';
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    entry.setValue(0);
+    const intro = Animated.timing(entry, {
+      toValue: 1,
+      duration: 680,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    intro.start();
+
+    return () => {
+      intro.stop();
+    };
+  }, [entry]);
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'Informe seu email';
@@ -83,7 +173,7 @@ export default function LoginScreen() {
       await signIn(email.trim(), password);
       router.replace('/(tabs)');
     } catch (error: any) {
-      if (error?.message?.includes('Email not confirmed')) {
+      if (error?.code === 'auth/email-not-verified' || error?.message?.includes('Email not confirmed')) {
         setShowResendButton(true);
         setFeedback({
           type: 'info',
@@ -98,11 +188,36 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    const success = await signInWithGoogle();
+    if (success) {
+      router.replace('/(tabs)');
+    }
+  };
+
+  const handleQuickTestLogin = async () => {
+    setEmail(TEST_ACCOUNT_EMAIL);
+    setPassword(TEST_ACCOUNT_PASSWORD);
+    setErrors({});
+    setShowResendButton(false);
+
+    try {
+      setLoading(true);
+      setFeedback(null);
+      await quickSignInTestUser();
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      Alert.alert('Nao foi possivel usar a conta de teste', error?.message ?? 'Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleResendConfirmation = async () => {
     try {
       setLoading(true);
-      await resendConfirmationEmail(email.trim());
+      await resendConfirmationEmail(email.trim(), password);
       Alert.alert('Email reenviado', 'Confira sua caixa de entrada.');
       setFeedback({
         type: 'success',
@@ -122,42 +237,131 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={theme.gradient} style={styles.gradient}>
+        <Animated.View pointerEvents="none" style={[styles.atmosphere, { transform: [{ translateY: atmosphereSlowY }] }]}>
+          <Animated.View
+            style={[
+              styles.orb,
+              styles.orbOne,
+              {
+                transform: [{ translateX: atmosphereX }, { translateY: atmosphereFastY }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(255,255,255,0.48)', 'rgba(255,255,255,0.03)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.orb,
+              styles.orbTwo,
+              {
+                transform: [
+                  { translateX: atmosphereX.interpolate({ inputRange: [0, 22], outputRange: [0, -26] }) },
+                  { translateY: atmosphereSlowY },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(191,227,255,0.44)', 'rgba(191,227,255,0.02)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.orb,
+              styles.orbThree,
+              {
+                transform: [{ translateY: atmosphereFastY.interpolate({ inputRange: [-132, 0], outputRange: [-34, 0] }) }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(56,189,248,0.34)', 'rgba(56,189,248,0.02)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+        </Animated.View>
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
-          <ScrollView
+          <Animated.ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 48 }]}
+            contentContainerStyle={[
+              styles.scroll,
+              {
+                paddingHorizontal: horizontalPadding,
+                paddingTop: compact ? 18 : 24,
+                paddingBottom: insets.bottom + 48,
+                gap: compact ? 18 : 24,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: useNativeScrollDriver }
+            )}
           >
             <View style={styles.langRow}>
               <LanguageSwitcher />
             </View>
-            <View style={styles.header}>
+            <Animated.View
+              style={[
+                styles.header,
+                compact && styles.headerCompact,
+                {
+                  opacity: entryHeaderOpacity,
+                  transform: [{ translateY: entryHeaderY }],
+                },
+              ]}
+            >
               <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
               </TouchableOpacity>
               <View style={styles.headerTextBlock}>
-                <Text style={styles.appName}>MeuApp</Text>
+                <Text style={styles.appName}>Aprender+</Text>
                 <Text style={styles.headerSubtitle}>{t('auth_login_subtitle') ?? 'Bem-vindo de volta!'}</Text>
               </View>
-            </View>
+            </Animated.View>
 
-            <View style={styles.heroWrapper}>
-              <View style={styles.heroCircle}>
+            <Animated.View
+              style={[
+                styles.heroWrapper,
+                compact && styles.heroWrapperCompact,
+                {
+                  opacity: entryHeroOpacity,
+                  transform: [{ translateY: Animated.add(heroParallaxY, entryHeroY) }, { scale: heroParallaxScale }],
+                },
+              ]}
+            >
+              <View style={[styles.heroCircle, compact && styles.heroCircleCompact]}>
                 <Image
                   source={require('../../assets/images/hero-logo.png')}
                   resizeMode='contain'
-                  style={styles.heroImage}
+                  style={[styles.heroImage, compact && styles.heroImageCompact]}
                 />
               </View>
-              <Text style={styles.heroTitle}>{t('auth_login_title') ?? 'Fazer login'}</Text>
-              <Text style={styles.heroDescription}>
+              <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>
+                {t('auth_login_title') ?? 'Fazer login'}
+              </Text>
+              <Text style={[styles.heroDescription, compact && styles.heroDescriptionCompact]}>
                 {t('auth_login_subtitle') ?? 'Entre com seus dados.'}
               </Text>
-            </View>
-            <View style={styles.card}>
+            </Animated.View>
+            <Animated.View
+              style={{
+                opacity: entryCardOpacity,
+                transform: [{ translateY: Animated.add(cardParallaxY, entryCardY) }],
+              }}
+            >
+              <View style={[styles.card, compact && styles.cardCompact]}>
               <View style={styles.cardHeader}>
+                <Text style={styles.cardEyebrow}>Acesso</Text>
                 <Text style={styles.cardTitle}>{t('auth_login_title') ?? 'Fazer login'}</Text>
                 <Text style={styles.cardSubtitle}>{t('auth_login_subtitle') ?? 'Entre com seus dados.'}</Text>
               </View>
@@ -193,11 +397,46 @@ export default function LoginScreen() {
                 style={styles.inputSpacing}
               />
 
-              <Button
-                title={t('auth_login_button') ?? 'Entrar com senha'}
-                onPress={handlePasswordSignIn}
-                loading={loading}
-              />
+              <View style={[styles.authActions, stackedActions && styles.authActionsStacked]}>
+                <Button
+                  title="Entrar"
+                  onPress={handlePasswordSignIn}
+                  loading={loading}
+                  disabled={googleLoading}
+                  style={[styles.authActionButton, stackedActions && styles.authActionButtonStacked, denseButtons && styles.authActionButtonDense]}
+                />
+                <Button
+                  title={t('auth_login_create') ?? 'Criar conta'}
+                  onPress={() => router.push('/auth/signup')}
+                  variant="ghost"
+                  disabled={loading || googleLoading}
+                  style={[styles.authActionButton, stackedActions && styles.authActionButtonStacked, denseButtons && styles.authActionButtonDense]}
+                />
+              </View>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>ou</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleGoogleSignIn}
+                disabled={!isGoogleReady || loading || googleLoading}
+                style={[
+                  styles.googleButton,
+                  (!isGoogleReady || loading || googleLoading) && styles.googleButtonDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Entrar com Google"
+              >
+                <Ionicons name="logo-google" size={20} color="#EA4335" />
+                <Text style={styles.googleButtonText}>
+                  {googleLoading ? 'Conectando com Google...' : 'Entrar com Google'}
+                </Text>
+              </TouchableOpacity>
+
+              {googleError ? <Text style={styles.googleErrorText}>{googleError}</Text> : null}
 
 
               {showResendButton ? (
@@ -205,6 +444,7 @@ export default function LoginScreen() {
                   title="Reenviar email de confirmacao"
                   onPress={handleResendConfirmation}
                   variant="ghost"
+                  disabled={googleLoading}
                   style={styles.secondaryButton}
                 />
               ) : null}
@@ -247,6 +487,19 @@ export default function LoginScreen() {
                 </View>
               ) : null}
 
+              {__DEV__ ? (
+                <View style={styles.quickTestCard}>
+                  <Text style={styles.quickTestTitle}>Acesso rapido de teste</Text>
+                  <Text style={styles.quickTestHint}>{TEST_ACCOUNT_EMAIL} / {TEST_ACCOUNT_PASSWORD}</Text>
+                  <Button
+                    title="Entrar com conta de teste"
+                    onPress={handleQuickTestLogin}
+                    disabled={googleLoading || loading}
+                    style={styles.quickTestButton}
+                  />
+                </View>
+              ) : null}
+
               <Text style={styles.notice}>
                 Depois de criar uma conta, confirme o cadastro pelo link enviado ao seu email antes de tentar entrar.
               </Text>
@@ -255,13 +508,10 @@ export default function LoginScreen() {
                 <Link href="/auth/forgot-password" style={styles.linkText}>
                   {t('auth_login_forgot') ?? 'Esqueci minha senha'}
                 </Link>
-                <Text style={styles.dot}>|</Text>
-                <Link href="/auth/signup" style={styles.linkText}>
-                  {t('auth_login_create') ?? 'Criar conta'}
-                </Link>
               </View>
-            </View>
-          </ScrollView>
+              </View>
+            </Animated.View>
+          </Animated.ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
@@ -281,14 +531,46 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    gap: 24,
+  },
+  atmosphere: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  orb: {
+    position: 'absolute',
+    borderRadius: 999,
+    overflow: 'hidden',
+    opacity: 0.78,
+  },
+  orbOne: {
+    width: 250,
+    height: 250,
+    top: -52,
+    left: -64,
+  },
+  orbTwo: {
+    width: 290,
+    height: 290,
+    right: -90,
+    bottom: 110,
+  },
+  orbThree: {
+    width: 190,
+    height: 190,
+    top: 220,
+    left: 32,
+    opacity: 0.62,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  headerCompact: {
+    gap: 12,
   },
   backButton: {
     width: 44,
@@ -317,6 +599,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  heroWrapperCompact: {
+    gap: 12,
+  },
   heroCircle: {
     width: 120,
     height: 120,
@@ -326,14 +611,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...heroSurfaceShadow,
   },
+  heroCircleCompact: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+  },
   heroImage: {
     width: 82,
     height: 82,
+  },
+  heroImageCompact: {
+    width: 68,
+    height: 68,
   },
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '700',
+  },
+  heroTitleCompact: {
+    fontSize: 22,
   },
   heroDescription: {
     color: 'rgba(255,255,255,0.85)',
@@ -341,16 +638,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 24,
   },
+  heroDescriptionCompact: {
+    paddingHorizontal: 12,
+  },
   card: {
     width: '100%',
     borderRadius: 30,
     padding: 24,
     gap: 20,
     backgroundColor: 'rgba(255,255,255,0.97)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
     ...formCardShadow,
   },
+  cardCompact: {
+    borderRadius: 22,
+    padding: 16,
+    gap: 16,
+  },
   cardHeader: {
-    gap: 4,
+    gap: 6,
+  },
+  cardEyebrow: {
+    alignSelf: 'flex-start',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: '#2563EB',
+    backgroundColor: '#DBEAFE',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   cardTitle: {
     fontSize: 18,
@@ -364,12 +683,77 @@ const styles = StyleSheet.create({
   inputSpacing: {
     marginBottom: 12,
   },
+  authActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 2,
+  },
+  authActionsStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  authActionButton: {
+    flex: 1,
+  },
+  authActionButtonStacked: {
+    width: '100%',
+    flex: 0,
+  },
+  authActionButtonDense: {
+    minHeight: 48,
+    zIndex: 10,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: -2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    minHeight: 54,
+    paddingHorizontal: 16,
+  },
+  googleButtonDisabled: {
+    opacity: 0.55,
+  },
+  googleButtonText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleErrorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    marginTop: -8,
+    textAlign: 'center',
+  },
   secondaryButton: {
     marginTop: -4,
   },
   linksRow: {
-    marginTop: 8,
+    marginTop: 4,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -377,9 +761,6 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#2563EB',
     fontWeight: '600',
-  },
-  dot: {
-    color: '#D1D5DB',
   },
   notice: {
     marginTop: 8,
@@ -410,5 +791,25 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#1E3A8A',
+  },
+  quickTestCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    gap: 8,
+  },
+  quickTestTitle: {
+    color: '#1E3A8A',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  quickTestHint: {
+    color: '#1D4ED8',
+    fontSize: 12,
+  },
+  quickTestButton: {
+    marginTop: 4,
   },
 });

@@ -65,11 +65,11 @@ export interface Quiz {
   exam_type: 'ENEM' | 'UFPR' | 'UTFPR';
   subject_area: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  questions: QuizQuestion[];
+  questions: QuizPromptQuestion[];
   created_at: string;
 }
 
-export interface QuizQuestion {
+export interface QuizPromptQuestion {
   id: string;
   stem: string;
   options: string[];

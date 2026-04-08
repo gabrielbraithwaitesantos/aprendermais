@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeColors, useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
-import { useProgress } from '../../hooks/useProgress';
 
 const { width } = Dimensions.get('window');
 
@@ -51,6 +50,26 @@ export default function PerfilScreen() {
   const { user, signOut } = useAuthStore();
   const [notifications, setNotifications] = useState(true);
   const [sound, setSound] = useState(true);
+
+  const handleSettingPress = async (settingId: string) => {
+    if (settingId === 'privacy') {
+      Alert.alert('Privacidade', 'A politica de privacidade sera publicada em breve.');
+      return;
+    }
+
+    if (settingId === 'help') {
+      try {
+        await Linking.openURL('https://github.com/gabrielbraithwaitesantos/aprendermais/issues');
+      } catch {
+        Alert.alert('Ajuda', 'Nao foi possivel abrir o canal de suporte.');
+      }
+      return;
+    }
+
+    if (settingId === 'about') {
+      Alert.alert('Sobre', 'Aprender+ v1.0. App de estudo para ENEM e vestibulares.');
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -107,11 +126,11 @@ export default function PerfilScreen() {
             <View style={styles.profileHeader}>
               <View style={styles.avatarContainer}>
                 <Text style={styles.avatarText}>
-                  {user?.user_metadata?.name?.charAt(0) || 'E'}
+                  {user?.displayName?.charAt(0) || 'E'}
                 </Text>
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.userName}>{user?.user_metadata?.name || 'Estudante'}</Text>
+                <Text style={styles.userName}>{user?.displayName || 'Estudante'}</Text>
                 <Text style={styles.userEmail}>{user?.email}</Text>
                 <View style={styles.levelContainer}>
                   <Text style={styles.levelIcon}>{userLevel.icon}</Text>
@@ -176,7 +195,16 @@ export default function PerfilScreen() {
             <Text style={styles.sectionTitle}>Configurações</Text>
             <View style={styles.settingsList}>
               {settings.map((setting) => (
-                <TouchableOpacity key={setting.id} style={styles.settingItem}>
+                <TouchableOpacity
+                  key={setting.id}
+                  style={styles.settingItem}
+                  onPress={() => {
+                    if (setting.type === 'link') {
+                      handleSettingPress(setting.id);
+                    }
+                  }}
+                  activeOpacity={setting.type === 'link' ? 0.85 : 1}
+                >
                   <View style={styles.settingLeft}>
                     <Text style={styles.settingIcon}>{setting.icon}</Text>
                     <Text style={styles.settingLabel}>{setting.label}</Text>
@@ -209,7 +237,7 @@ export default function PerfilScreen() {
             <Text style={styles.sectionTitle}>Metas de Estudo</Text>
             <View style={styles.goalsCard}>
               <View style={styles.goalItem}>
-                <Ionicons name="target" size={24} color="#10B981" />
+                <Ionicons name="flag-outline" size={24} color="#10B981" />
                 <View style={styles.goalInfo}>
                   <Text style={styles.goalTitle}>Meta Semanal</Text>
                   <Text style={styles.goalValue}>15 horas</Text>

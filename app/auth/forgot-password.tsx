@@ -6,9 +6,10 @@ import { useThemeColors } from '../../store/themeStore';
 import { useRouter } from 'expo-router';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/firebase';
 
 export default function ForgotPassword() {
   const insets = useSafeAreaInsets();
@@ -31,10 +32,20 @@ export default function ForgotPassword() {
     try {
       setLoading(true);
       const trimmedEmail = email.trim();
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo,
-      });
-      if (error) throw error;
+
+      try {
+        await sendPasswordResetEmail(auth, trimmedEmail, {
+          url: redirectTo,
+          handleCodeInApp: true,
+        });
+      } catch (error: any) {
+        if (error?.code === 'auth/invalid-continue-uri') {
+          await sendPasswordResetEmail(auth, trimmedEmail);
+        } else {
+          throw error;
+        }
+      }
+
       Alert.alert('Enviado', 'Confira seu email para redefinir a senha.');
       router.replace('/auth/login');
     } catch (e: any) {

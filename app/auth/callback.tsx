@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { applyActionCode } from 'firebase/auth';
 
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/firebase';
 import { useAuthStore } from '../../store/authStore';
 
 type Status = 'processing' | 'error';
@@ -20,36 +21,40 @@ export default function AuthCallbackScreen() {
         const getParam = (value: string | string[] | undefined) =>
           Array.isArray(value) ? value[0] : value;
 
-        const code = getParam(params.code as string | string[] | undefined);
-        const accessToken = getParam(params.access_token as string | string[] | undefined);
-        const refreshToken = getParam(params.refresh_token as string | string[] | undefined);
+        const mode = getParam(params.mode as string | string[] | undefined);
+        const oobCode = getParam(params.oobCode as string | string[] | undefined);
         const type = getParam(params.type as string | string[] | undefined);
         description = getParam(params.error_description as string | string[] | undefined);
         const normalizedType = type ? type.toLowerCase() : undefined;
+        const normalizedMode = mode ? mode.toLowerCase() : undefined;
 
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        } else if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
+        if (normalizedMode === 'resetpassword' && oobCode) {
+          Alert.alert('Redefinicao de senha', 'Link validado. Atualize sua senha.');
+          router.replace({
+            pathname: '/auth/reset-password',
+            params: { oobCode },
           });
-          if (error) throw error;
-        } else {
-          throw new Error(description ?? 'Parametros de autenticacao ausentes.');
+          return;
+        }
+
+        if (normalizedMode === 'verifyemail' && oobCode) {
+          await applyActionCode(auth, oobCode);
+          Alert.alert('Email confirmado', 'Sua conta foi verificada com sucesso.');
+          router.replace('/auth/login');
+          return;
         }
 
         await useAuthStore.getState().initialize();
 
         if (normalizedType === 'recovery') {
-          Alert.alert('Redefinicao de senha', 'Link validado. Atualize sua senha.');
           router.replace('/auth/reset-password');
-        } else {
+        } else if (auth.currentUser) {
           router.replace('/(tabs)');
+        } else {
+          router.replace('/auth/login');
         }
       } catch (error: any) {
-        console.error('Supabase auth callback error', error);
+        console.error('Firebase auth callback error', error);
         setErrorMessage(error?.message ?? description ?? 'Falha ao concluir a autenticacao.');
         setStatus('error');
       }
