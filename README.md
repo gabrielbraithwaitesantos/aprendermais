@@ -32,7 +32,7 @@ cp .env.example .env
 - Lint: `npm run lint`
 - Typecheck: `npm run typecheck`
 - Validacao completa: `npm run check`
-
+opa
 ## Build web
 
 ```bash
